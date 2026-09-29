@@ -91,6 +91,24 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(state.hero?.timing?.pickup.live, false) // no stop list for 1078: "Scheduled"
     }
 
+    func testSampleDataIgnoresStopListTiming() {
+        // The same late stop list that reorders a live board must not make sample data look late.
+        let runs: Runs = [
+            "1074": [
+                TrainStop(name: "Upper Montclair", time: at(morning, 33), departed: false, status: "Late", note: nil),
+                TrainStop(name: "Watchung Avenue", time: at(morning, 35), departed: false, status: "Late", note: nil),
+                TrainStop(name: "Hoboken", time: at(morning, 70), departed: false, status: "Late", note: nil),
+            ],
+        ]
+        let state = compute(payload(weekday, kind: .sample), runs: runs)
+        XCTAssertEqual(state.feedMode, .sample)
+        XCTAssertEqual(state.hero?.trip.trainId, "1074")
+        XCTAssertEqual(state.hero?.delayMinutes ?? 0, 0)
+        XCTAssertEqual(state.hero?.timing?.pickup.live, false)
+        XCTAssertEqual(state.hero?.timing?.pickup.delayMinutes ?? 0, 0)
+        XCTAssertEqual(state.hero?.expectedDeparture, state.hero?.trip.departure)
+    }
+
     func testSampleDataNeverCarriesAlertsOrANoServiceClaim() {
         var trips = weekday
         trips[0].status = .delayed

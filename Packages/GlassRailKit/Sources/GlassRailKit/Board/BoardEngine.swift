@@ -146,11 +146,14 @@ public enum BoardEngine {
             consecutiveFailures: input.fetchFailures
         )
         let alerts = payload.source.kind == .live
+        // Stop-list timing (true pickup/drop-off, the journey dot, connections) is
+        // only trusted on live data: sample data must never show a train as late.
+        let runs: Runs = alerts ? input.runs : [:]
 
         let base = Status.selectTripViews(payload.trips, fromId: from.id, toId: to.id, now: now, alerts: alerts, changes: activeChanges)
         let tracked = trackedTrainIds(base: base, pin: input.pin, rideCache: input.rideCache)
         let direction = base
-            .map { applyTiming($0, runs: input.runs, origin: from, dest: to) }
+            .map { applyTiming($0, runs: runs, origin: from, dest: to) }
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
         let dirKey = "\(from.id)|\(to.id)"
 
@@ -174,7 +177,7 @@ public enum BoardEngine {
         var pinnedRide: TripView?
         if let activePinKey, upcomingHero?.key != activePinKey, let retainedTrip,
            let ride = Status.rideView(retainedTrip, now: now, alerts: alerts, changes: activeChanges) {
-            pinnedRide = applyTiming(ride, runs: input.runs, origin: from, dest: to)
+            pinnedRide = applyTiming(ride, runs: runs, origin: from, dest: to)
         }
         let hero = pinnedRide ?? upcomingHero
         let isPinned = activePinKey != nil && hero?.key == activePinKey
@@ -201,8 +204,8 @@ public enum BoardEngine {
             }
         }
 
-        let heroStops = hero?.trip.trainId.flatMap { input.runs[$0] }
-        let heroConnections = hero.map { Journey.tripConnections($0.trip, runs: input.runs) } ?? []
+        let heroStops = hero?.trip.trainId.flatMap { runs[$0] }
+        let heroConnections = hero.map { Journey.tripConnections($0.trip, runs: runs) } ?? []
 
         var progress = 0.0
         if let hero {
