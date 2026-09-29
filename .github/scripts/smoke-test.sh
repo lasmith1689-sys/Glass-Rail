@@ -83,7 +83,8 @@ if alive; then echo "Glass Rail still running 25 s after a live launch"; else
 capture 02-delayed 6 -GlassRailDemo delayed
 capture 03-track-changed 8 -GlassRailDemo track
 capture 04-riding 9 -GlassRailDemo riding
-capture 05-departed 15 -GlassRailDemo departed
+capture 04b-riding-before-drop 3 -GlassRailDemo riding
+capture 05-departed 13 -GlassRailDemo departed
 capture 06-stale 5 -GlassRailDemo stale
 capture 07-sample 5 -GlassRailDemo sample
 capture 08-later-sheet 6 -GlassRailDemo delayed -GlassRailSheet later

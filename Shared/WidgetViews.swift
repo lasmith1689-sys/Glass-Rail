@@ -33,6 +33,20 @@ enum WidgetText {
         "\(snapshot.from.code ?? snapshot.from.shortLabel) → \(snapshot.to.code ?? snapshot.to.shortLabel)"
     }
 
+    /// A widget-sized station name ("Watchung", "Penn Station").
+    static func name(_ station: Station) -> String {
+        switch station.id {
+        case "watchung": return "Watchung"
+        case "penn": return "Penn Station"
+        default: return station.shortLabel
+        }
+    }
+
+    /// "To Hoboken": all a small widget needs to say about the direction.
+    static func heading(_ snapshot: WidgetSnapshot) -> String {
+        "To \(name(snapshot.to))"
+    }
+
     static func status(_ train: WidgetTrain) -> (text: String, tone: AlertBadge.Tone)? {
         if train.cancelled { return ("Cancelled", .cancel) }
         if train.delayed { return (train.delayMinutes.map { "Delayed \($0)m" } ?? "Delayed", .delay) }
@@ -65,7 +79,7 @@ struct SmallTrainWidget: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
-                Text(WidgetText.route(snapshot))
+                Text(WidgetText.heading(snapshot))
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.2)
                     .textCase(.uppercase)
@@ -181,7 +195,7 @@ struct RectangularTrainWidget: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Label {
-                Text("\(snapshot.from.shortLabel) → \(snapshot.to.shortLabel)")
+                Text("\(WidgetText.name(snapshot.from)) → \(WidgetText.name(snapshot.to))")
             } icon: {
                 Image(systemName: "tram.fill")
             }
@@ -195,9 +209,11 @@ struct RectangularTrainWidget: View {
                     .minimumScaleFactor(0.8)
                 HStack(spacing: 4) {
                     if train.departure > snapshot.date {
-                        Text("in \(train.departure, style: .relative)")
+                        Text("Leaves in")
+                        DepartureCountdown(from: snapshot.date, departure: train.departure)
+                            .frame(maxWidth: 58, alignment: .leading)
                     } else {
-                        Text("Now")
+                        Text("Leaving now")
                     }
                     if let status = WidgetText.status(train) {
                         Text("· \(status.text)").fontWeight(.semibold)

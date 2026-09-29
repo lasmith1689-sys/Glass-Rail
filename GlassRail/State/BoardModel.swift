@@ -39,6 +39,7 @@ final class BoardModel {
     let demo: DemoScenario?
     private let client = NJTClient()
     private let store: SharedStore
+    private let rides = RideActivityController()
     @ObservationIgnored private var trackState = TrackState()
     @ObservationIgnored private var watcher = DepartureWatcher()
     @ObservationIgnored private var loops: [Task<Void, Never>] = []
@@ -242,6 +243,7 @@ final class BoardModel {
         }
         if next != state { state = next }
         scheduleRunsIfNeeded()
+        rides.sync(pin: pin, state: state, now: now)
     }
 
     private func showDeparted(_ label: String, dirKey: String) {
@@ -337,7 +339,10 @@ final class BoardModel {
         let demoPayload = Demo.payload(scenario, step: step, now: at)
         trackState.ingest(demoPayload, now: at)
         payload = demoPayload
-        runs = Demo.runs(for: demoPayload, now: at)
+        // Merge like the live path does: live mode keeps fetching the pinned
+        // train's stop list after the planner drops it, so the riding
+        // scenario keeps its stops too. (v4's demo replaced them.)
+        runs.merge(Demo.runs(for: demoPayload, now: at)) { _, new in new }
         now = at
         recompute()
     }

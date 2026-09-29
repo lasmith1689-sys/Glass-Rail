@@ -6,6 +6,7 @@ import WidgetKit
 struct GlassRailWidgetsBundle: WidgetBundle {
     var body: some Widget {
         NextTrainWidget()
+        RideLiveActivity()
     }
 }
 

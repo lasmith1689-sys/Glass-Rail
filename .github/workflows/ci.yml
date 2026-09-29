@@ -49,6 +49,8 @@ jobs:
     name: App + widgets (Simulator build and smoke test)
     runs-on: macos-26
     timeout-minutes: 45
+    permissions:
+      contents: write # only to force-push screenshots to the ci-screenshots branch
     steps:
       - uses: actions/checkout@v5
 
@@ -105,17 +107,25 @@ jobs:
         if: always()
         run: .github/scripts/annotate-screens.sh text ocr.txt 9 16
 
-      - name: Screenshots for review (1 of 3)
-        if: always()
-        run: .github/scripts/annotate-screens.sh image screenshots 1 5
-
-      - name: Screenshots for review (2 of 3)
-        if: always()
-        run: .github/scripts/annotate-screens.sh image screenshots 6 10
-
-      - name: Screenshots for review (3 of 3)
-        if: always()
-        run: .github/scripts/annotate-screens.sh image screenshots 11 15
+      - name: Publish screenshots to the ci-screenshots branch
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls screenshots/*.png >/dev/null 2>&1 || exit 0
+          out=$(mktemp -d)
+          for file in screenshots/*.png; do
+            sips -Z 1100 -s format jpeg -s formatOptions 72 "$file" --out "$out/$(basename "$file" .png).jpg" >/dev/null
+          done
+          cp ocr.txt "$out/" 2>/dev/null || true
+          cd "$out"
+          git init -q -b ci-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Simulator screenshots for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-screenshots
+          echo "::notice title=Screenshots::Pushed $(ls *.jpg | wc -l | tr -d ' ') screenshots of ${GITHUB_SHA::7} to the ci-screenshots branch."
 
       - name: Upload screenshots
         if: always()
