@@ -114,10 +114,19 @@ final class BoardModel {
     }
 
     /// Back in the foreground: catch the clock up and refresh right away.
+    /// A ride that is still on gets a live Live Activity again.
     func becameActive() {
+        rides.resume()
         tick()
         guard started, demo == nil else { return }
         Task { await loadLive() }
+    }
+
+    /// Going to the background, possibly for good: hand the pinned ride's
+    /// Live Activity over to the system with a dismissal date, so it leaves
+    /// the Lock Screen when the ride is over even if the app never runs again.
+    func enteredBackground() {
+        rides.suspend(now: Date())
     }
 
     func tick() {
@@ -243,7 +252,7 @@ final class BoardModel {
         }
         if next != state { state = next }
         scheduleRunsIfNeeded()
-        rides.sync(pin: pin, state: state, now: now)
+        rides.sync(pin: pin, state: state, updatedAt: payload.generatedAt, now: now)
     }
 
     private func showDeparted(_ label: String, dirKey: String) {

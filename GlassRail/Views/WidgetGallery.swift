@@ -3,8 +3,8 @@ import SwiftUI
 import WidgetKit
 
 /// Debug-only (`-GlassRailWidgetGallery YES`): renders the widget layouts at
-/// their iPhone sizes so CI can screenshot them. Uses the board's current
-/// data, or the delayed QA scenario.
+/// their iPhone sizes, and the Live Activity's Lock Screen layout, so CI can
+/// screenshot them. Uses the board's current data, or a QA scenario.
 struct WidgetGallery: View {
     @Environment(BoardModel.self) private var model
     @Environment(\.theme) private var theme
@@ -13,7 +13,7 @@ struct WidgetGallery: View {
         let snapshot = gallerySnapshot
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Widget gallery").kicker()
+                Text("Glass Rail widgets").kicker()
                 HStack(alignment: .top, spacing: 16) {
                     tile(.systemSmall, snapshot: snapshot)
                     VStack(alignment: .leading, spacing: 10) {
@@ -22,6 +22,16 @@ struct WidgetGallery: View {
                     }
                 }
                 tile(.systemMedium, snapshot: snapshot)
+                if let state = model.state,
+                   let ride = RideActivityAttributes.preview(state: state, updatedAt: model.payload?.generatedAt ?? model.now, now: model.now) {
+                    Text("Live Activity").kicker()
+                    RideLockScreenView(attributes: ride.0, state: ride.1)
+                        .frame(width: 364, alignment: .leading)
+                        .background(Color(hex: 0x15203A).opacity(0.72))
+                        .background(ThemeBackdrop(theme: theme))
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .environment(\.colorScheme, .dark)
+                }
             }
             .padding(20)
         }

@@ -21,7 +21,11 @@ struct GlassRailApp: App {
             .onOpenURL { _ in model.becameActive() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { model.becameActive() }
+            switch phase {
+            case .active: model.becameActive()
+            case .background: model.enteredBackground()
+            default: break
+            }
         }
     }
 }
