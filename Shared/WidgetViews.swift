@@ -251,14 +251,13 @@ struct InlineTrainWidget: View {
 
     var body: some View {
         if let train = snapshot.next {
-            let status = WidgetText.shortStatus(train).map { " · " + $0 } ?? ""
             Label {
-                Text(Format.time(train.departure) + " · " + WidgetText.track(train) + status)
+                Text(train.inlineSummary)
             } icon: {
                 Image(systemName: "tram.fill")
             }
         } else {
-            Label("No trains this way", systemImage: "tram")
+            Label(snapshot.noService ? "No trains now" : "No more trains", systemImage: "tram")
         }
     }
 }

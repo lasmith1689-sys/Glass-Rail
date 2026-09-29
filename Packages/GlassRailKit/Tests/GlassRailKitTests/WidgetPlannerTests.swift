@@ -82,4 +82,74 @@ final class WidgetPlannerTests: XCTestCase {
         XCTAssertEqual(ids, ["1101", "1105", "1109", "1290", "1294"])
         XCTAssertLessThanOrEqual(ids.count, NJTQueries.maxStopListTrains)
     }
+
+    // MARK: Network budget
+
+    func testReusesTheAppsSavedBoardForFiveMinutes() {
+        let saved = payload
+        XCTAssertTrue(WidgetPlanner.canReuse(saved, now: now))
+        XCTAssertTrue(WidgetPlanner.canReuse(saved, now: at(4.99)))
+        XCTAssertTrue(WidgetPlanner.canReuse(saved, now: at(5)))
+        XCTAssertFalse(WidgetPlanner.canReuse(saved, now: at(5.02)))
+        XCTAssertFalse(WidgetPlanner.canReuse(saved, now: at(-6)), "a timestamp from the future is not fresh")
+        var sample = saved
+        sample.source.kind = .sample
+        XCTAssertFalse(WidgetPlanner.canReuse(sample, now: now))
+    }
+
+    func testTheWidgetsOwnFetchIsTwoBoardsAndFourPlannerLookups() async throws {
+        // 1:30 PM EDT: half an hour before the widget flips to the ride home.
+        let base = date("2026-08-03T17:30:00.000Z")
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" { return FakeNJT.emptyBoard }
+            if variables["origin"].jsString == "Hoboken Terminal" {
+                return FakeNJT.planner(train: "1159", at: "02:35:00 PM", arrive: "03:14:00 PM")
+            }
+            return FakeNJT.planner(train: "1101", at: "01:45:00 PM", arrive: "02:24:00 PM")
+        }
+        let client = NJTClient(transport: fake, clock: { base })
+        let payload = try await client.fetchLivePayload(
+            pairs: WidgetPlanner.pairs(destinationId: "hoboken"),
+            plannerOffsets: WidgetPlanner.plannerOffsetsMinutes
+        )
+        let planner = fake.calls.filter { $0.operation == "planner" }
+        XCTAssertEqual(planner.count, 4)
+        XCTAssertEqual(fake.calls.filter { $0.operation == "board" }.count, 2)
+        // The ride home is looked up from now, so it is there at 2 PM.
+        let homeTimes = planner.filter { $0.variables["origin"].jsString == "Hoboken Terminal" }.map { $0.variables["time"].jsString }
+        XCTAssertEqual(Set(homeTimes), ["1:30 PM", "2:45 PM"])
+
+        let timeline = WidgetPlanner.timeline(payload: payload, runs: [:], destinationId: "hoboken", now: base)
+        XCTAssertEqual(timeline.first?.commuteMode, .am)
+        XCTAssertEqual(timeline.first?.next?.trainId, "1101")
+        let twoPM = date("2026-08-03T18:00:00.000Z")
+        let afterFlip = timeline.first { $0.date == twoPM }
+        XCTAssertEqual(afterFlip?.commuteMode, .pm)
+        XCTAssertEqual(afterFlip?.next?.trainId, "1159")
+    }
+
+    // MARK: Inline Lock Screen line
+
+    func testTheInlineLineIsShortAndSaysOneThingAfterTheTime() {
+        let snapshot = WidgetPlanner.snapshot(payload: payload, runs: [:], destinationId: "hoboken", at: now)
+        guard let onTime = snapshot.next, let delayed = snapshot.later.first else {
+            return XCTFail("expected trains")
+        }
+        XCTAssertEqual(onTime.inlineSummary, "1:08 PM · Tk 2")
+        XCTAssertEqual(delayed.inlineSummary, "1:43 PM · +5m")
+
+        var cancelled = onTime
+        cancelled.cancelled = true
+        XCTAssertEqual(cancelled.inlineSummary, "Cancelled 1:08 PM")
+        var noTrack = onTime
+        noTrack.track = nil
+        XCTAssertEqual(noTrack.inlineSummary, "1:08 PM")
+        var vague = delayed
+        vague.delayMinutes = nil
+        XCTAssertEqual(vague.inlineSummary, "1:43 PM · late")
+
+        for line in [onTime, delayed, cancelled].map(\.inlineSummary) {
+            XCTAssertLessThanOrEqual(line.count, 17, line)
+        }
+    }
 }

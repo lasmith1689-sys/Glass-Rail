@@ -79,10 +79,10 @@ struct NextTrainProvider: TimelineProvider {
     }
 }
 
-/// Where the widget's data comes from: the app's own fresh data when it has
-/// just refreshed, otherwise NJ Transit directly (only the two directions for
-/// the chosen terminal), otherwise the last saved data, otherwise the bundled
-/// sample (labeled SAMPLE).
+/// Where the widget's data comes from: the app's saved data when it is at
+/// most 5 minutes old, otherwise NJ Transit directly (only the two directions
+/// for the chosen terminal, two planner lookups each), otherwise the last
+/// saved data, otherwise the bundled sample (labeled SAMPLE).
 enum WidgetData {
     struct Loaded {
         var payload: Payload
@@ -91,8 +91,6 @@ enum WidgetData {
         var themeId: String?
     }
 
-    /// The app's saved data is used as-is when it is this fresh.
-    static let reuseAppDataFor: TimeInterval = 120
     /// Saved data is still better than a sample within this window.
     static let fallbackWindow: TimeInterval = 6 * 3600
 
@@ -102,13 +100,16 @@ enum WidgetData {
         let themeId = store.themeId
         let saved = store.snapshot
 
-        if let saved, saved.payload.source.kind == .live, now.timeIntervalSince(saved.payload.generatedAt) < reuseAppDataFor {
+        if let saved, WidgetPlanner.canReuse(saved.payload, now: now) {
             return Loaded(payload: saved.payload, runs: saved.runs, destinationId: destinationId, themeId: themeId)
         }
 
         let client = NJTClient()
         do {
-            let payload = try await client.fetchLivePayload(pairs: WidgetPlanner.pairs(destinationId: destinationId))
+            let payload = try await client.fetchLivePayload(
+                pairs: WidgetPlanner.pairs(destinationId: destinationId),
+                plannerOffsets: WidgetPlanner.plannerOffsetsMinutes
+            )
             let ids = WidgetPlanner.trainsNeedingStops(payload: payload, destinationId: destinationId, now: now)
             let runs = await client.fetchTrainRuns(ids)
             return Loaded(payload: payload, runs: runs, destinationId: destinationId, themeId: themeId)

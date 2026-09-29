@@ -27,6 +27,19 @@ public struct WidgetTrain: Equatable, Sendable, Codable {
     }
 }
 
+extension WidgetTrain {
+    /// The inline Lock Screen line. It shares a narrow row with the date, so
+    /// it says one thing after the time: the track, or what is wrong.
+    /// "2:36 PM · Tk 2", "2:42 PM · +6m", "Cancelled 2:36 PM".
+    public var inlineSummary: String {
+        let time = Format.time(departure)
+        if cancelled { return "Cancelled \(time)" }
+        if delayed { return "\(time) · \(delayMinutes.map { "+\($0)m" } ?? "late")" }
+        guard let track, !track.isEmpty else { return time }
+        return "\(time) · Tk \(track)"
+    }
+}
+
 /// What a widget shows at one moment.
 public struct WidgetSnapshot: Equatable, Sendable {
     public var date: Date
@@ -102,6 +115,25 @@ public enum WidgetPlanner {
             return now.addingTimeInterval(5 * 60)
         }
         return now.addingTimeInterval(10 * 60)
+    }
+
+    /// The app's saved board is reused as-is when it is at most this old, so a
+    /// widget reload right after the app refreshed costs no network at all.
+    public static let reuseSavedDataFor: TimeInterval = 5 * 60
+
+    /// Planner lookups per direction when the widget fetches for itself: now
+    /// and 75 minutes out (the app makes four). That covers the next two to
+    /// three hours both ways, well past the next reload, and the other
+    /// direction's trains for the 2 PM switch.
+    public static let plannerOffsetsMinutes = [0, 75]
+
+    /// Whether the app's saved board is fresh enough to use without fetching.
+    /// Only live data counts; a timestamp far in the future (a clock change)
+    /// doesn't make data fresh.
+    public static func canReuse(_ payload: Payload, now: Date) -> Bool {
+        guard payload.source.kind == .live else { return false }
+        let age = now.timeIntervalSince(payload.generatedAt)
+        return age <= reuseSavedDataFor && age >= -reuseSavedDataFor
     }
 
     /// The two directions for the chosen terminal, which is all a widget needs.
