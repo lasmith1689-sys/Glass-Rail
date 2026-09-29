@@ -14,6 +14,8 @@ mkdir -p "$OUT/ocr"
 : > "$OCR_TXT"
 BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
 failures=0
+launched=""
+riding_pid=""
 
 started=$SECONDS
 timeline=()
@@ -84,7 +86,7 @@ capture() {
   local name="$1" wait="$2" spec="$3"
   shift 3
   run_limited 30 xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
-  run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" >/dev/null
+  launched=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" 2>&1)
   sleep "$wait"
   local attempt passed=0 text="$OUT/ocr/$name.txt"
   for attempt in 1 2 3 4 5; do
@@ -145,7 +147,10 @@ lifecycle_check() {
     failures=$((failures + 1))
     return
   fi
-  run_limited 60 xcrun simctl openurl "$UDID" "glassrail://board" >/dev/null 2>&1
+  # Back to the app the way a tap on its icon does it. (`simctl openurl` would ask "Open in Glass
+  # Rail?" from Settings and leave that alert over every later screen.)
+  local back
+  back=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" 2>&1)
   sleep 8
   log=$(activity_log 2m)
   after=$(printf '%s\n' "$log" | awk '/ended on suspend/ { seen = 1; next } seen')
@@ -153,7 +158,9 @@ lifecycle_check() {
   echo "$after"
   echo "::endgroup::"
   if [[ "$after" == *"Live Activity started"* ]]; then
-    echo "::notice title=Live Activity::Back in the foreground: a live activity replaced the ended one."
+    local how="same process, pid ${back##*: }"
+    [ "${back##*: }" = "$riding_pid" ] || how="relaunched: pid $riding_pid then ${back##*: }"
+    echo "::notice title=Live Activity::Back in the foreground ($how): a live activity replaced the ended one."
   else
     echo "::error title=Live Activity::Returning to the app did not start a live activity again."
     failures=$((failures + 1))
@@ -171,6 +178,7 @@ if alive; then echo "Glass Rail still running 25 s after a live launch"; else
 capture 02-delayed 6 'DELAYED && Originally' -GlassRailDemo delayed
 capture 03-track-changed 8 'TRACK CHANGED' -GlassRailDemo track
 capture 04-riding 9 'PINNED && Arrives in' -GlassRailDemo riding
+riding_pid="${launched##*: }"
 lifecycle_check
 mark "live activity lifecycle"
 capture 04b-riding-before-drop 3 'Arrives in' -GlassRailDemo riding
