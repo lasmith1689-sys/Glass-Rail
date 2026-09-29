@@ -60,6 +60,11 @@ for bundle in "$app" "$widget"; do
   fi
 done
 echo "::notice title=App Store archive::Both bundles carry the App Group $group."
+# App Store Connect rejects a bundle without this key (error 90474), so catch it here.
+if ! plutil -extract UISupportedInterfaceOrientations json -o - "$app/Info.plist" >/dev/null 2>&1; then
+  echo "::error::Info.plist has no UISupportedInterfaceOrientations, which App Store Connect rejects."
+  exit 1
+fi
 plutil -p "$app/Info.plist" | grep -E '"CFBundleIdentifier"|"CFBundleDisplayName"|"CFBundleShortVersionString"|"CFBundleVersion"|ITSAppUsesNonExemptEncryption|"MinimumOSVersion"' || true
 plutil -p "$widget/Info.plist" | grep -E '"CFBundleIdentifier"|NSExtensionPointIdentifier' || true
 
