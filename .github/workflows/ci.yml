@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: GlassRailKit unit tests (macOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Unit tests
+        run: |
+          swift test --package-path Packages/GlassRailKit > test.log 2>&1 || status=$?
+          grep -E "Executed [0-9]+ tests|error:|failed \(" test.log | sort -u | head -80 || true
+          summary=$(grep -E "Executed [0-9]+ tests" test.log | tail -1 | sed 's/^ *//' || true)
+          if [ -n "${status:-}" ]; then
+            bash .github/scripts/annotate-errors.sh test.log "swift test"
+            exit "$status"
+          fi
+          echo "::notice title=Unit tests::$summary"
+
+      - name: Unit tests in another time zone (results must not depend on the phone's zone)
+        run: |
+          TZ=Asia/Kolkata swift test --package-path Packages/GlassRailKit > test-tz.log 2>&1 || status=$?
+          summary=$(grep -E "Executed [0-9]+ tests" test-tz.log | tail -1 | sed 's/^ *//' || true)
+          if [ -n "${status:-}" ]; then
+            bash .github/scripts/annotate-errors.sh test-tz.log "swift test (TZ=Asia/Kolkata)"
+            exit "$status"
+          fi
+          echo "::notice title=Unit tests (TZ=Asia/Kolkata)::$summary"
+
+  app:
+    name: App + widgets (Simulator build and smoke test)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Generate the Xcode project
+        run: bash .github/scripts/generate-project.sh
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          sim=$(.github/scripts/pick-simulator.sh)
+          echo "Using simulator: $sim"
+          echo "name=${sim%%|*}" >> "$GITHUB_OUTPUT"
+          echo "udid=${sim##*|}" >> "$GITHUB_OUTPUT"
+
+      - name: Build app and widget extension
+        run: |
+          xcodebuild build \
+            -project GlassRail.xcodeproj \
+            -scheme GlassRail \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath DerivedData \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO > build.log 2>&1 || status=$?
+          if [ -n "${status:-}" ]; then
+            bash .github/scripts/annotate-errors.sh build.log "Simulator build"
+            exit "$status"
+          fi
+          grep -E "warning: " build.log | grep -v "/DerivedData/" | sort -u | head -40 || true
+          tail -n 3 build.log
+
+      - name: Verify the widget extension is embedded
+        run: |
+          app=DerivedData/Build/Products/Debug-iphonesimulator/GlassRail.app
+          test -d "$app/PlugIns/GlassRailWidgets.appex"
+          plutil -p "$app/Info.plist" | grep -E "CFBundleIdentifier|CFBundleDisplayName|GlassRailAppGroup|UILaunchScreen|ITSAppUsesNonExemptEncryption"
+          plutil -p "$app/PlugIns/GlassRailWidgets.appex/Info.plist" | grep -E "CFBundleIdentifier|NSExtensionPointIdentifier|GlassRailAppGroup"
+
+      - name: Smoke test in the Simulator
+        run: .github/scripts/smoke-test.sh "${{ steps.sim.outputs.udid }}" DerivedData/Build/Products/Debug-iphonesimulator/GlassRail.app screenshots
+
+      - name: Read screenshots (OCR)
+        if: always()
+        run: |
+          ls screenshots/*.png >/dev/null 2>&1 || exit 0
+          swift .github/scripts/ocr.swift screenshots/*.png | tee ocr.txt
+          # One annotation per screen, so the rendered text can be read from the run summary.
+          awk '/^===== /{ if (name) print name "\t" body; name=$2; body=""; next } { sub(/^ *[0-9]+%  /, ""); body = body (body ? " / " : "") $0 } END { if (name) print name "\t" body }' ocr.txt |
+            while IFS=$'\t' read -r name body; do echo "::notice title=OCR ${name}::${body:0:1800}"; done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: screenshots
+          if-no-files-found: ignore
+
+      - name: Preview images for review (base64 JPEG)
+        if: always()
+        run: |
+          for file in screenshots/*.png; do
+            [ -f "$file" ] || continue
+            name=$(basename "$file" .png)
+            sips -Z 640 -s format jpeg -s formatOptions 45 "$file" --out "/tmp/$name.jpg" >/dev/null
+            echo "=====BEGIN $name.jpg====="
+            base64 -i "/tmp/$name.jpg" | fold -w 180
+            echo "=====END $name.jpg====="
+          done
+
+  archive:
+    name: App Store archive (dry run, nothing uploaded)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Archive and check entitlements (no App Store Connect secrets)
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+        run: bash .github/scripts/testflight.sh
+
+  njt-live:
+    name: NJ Transit live probe (informational)
+    runs-on: macos-26
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Query NJ Transit from the runner
+        run: swift run --package-path Packages/GlassRailKit njt-probe njt-probe-out
+
+      - name: Upload raw replies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: njt-live-replies
+          path: njt-probe-out
+          if-no-files-found: ignore

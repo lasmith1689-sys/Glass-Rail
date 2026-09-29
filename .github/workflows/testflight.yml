@@ -1,0 +1,35 @@
+name: TestFlight
+
+# Signs the App Store build and uploads it to TestFlight. Runs only when started by hand
+# (Actions > TestFlight > Run workflow) or on a push to main whose head commit message
+# contains [ship]. See TESTFLIGHT.md.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    name: Build, sign and upload to TestFlight
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ship]')
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build, sign and upload
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          # Must grow with every upload; re-running a workflow bumps the second number.
+          BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+        run: bash .github/scripts/testflight.sh

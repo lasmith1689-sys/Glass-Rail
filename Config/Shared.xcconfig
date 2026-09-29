@@ -1,0 +1,17 @@
+// Glass Rail build configuration.
+//
+// GLASSRAIL_BUNDLE_ID_PREFIX: the app is <prefix>.GlassRail, the widgets <prefix>.GlassRail.Widgets,
+// and the App Group group.<prefix>.GlassRail. These IDs are registered on Apple's developer site.
+// DEVELOPMENT_TEAM stays empty: CI signs ad hoc and lets Apple's cloud signing pick the team at export
+// (see TESTFLIGHT.md). Set it to U3CTV4FLKM only for a local Xcode build on a Mac.
+
+DEVELOPMENT_TEAM =
+GLASSRAIL_BUNDLE_ID_PREFIX = com.lasmith1689
+
+// ---- Derived values (no need to edit below) ----
+GLASSRAIL_APP_BUNDLE_ID = $(GLASSRAIL_BUNDLE_ID_PREFIX).GlassRail
+GLASSRAIL_WIDGET_BUNDLE_ID = $(GLASSRAIL_APP_BUNDLE_ID).Widgets
+GLASSRAIL_APP_GROUP = group.$(GLASSRAIL_BUNDLE_ID_PREFIX).GlassRail
+
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
