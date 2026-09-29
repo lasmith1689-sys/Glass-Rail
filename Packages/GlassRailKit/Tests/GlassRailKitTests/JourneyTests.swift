@@ -12,7 +12,7 @@ final class JourneyTests: XCTestCase {
     }
 
     /// A Hoboken-bound run: origin-side stops already departed, Hoboken ahead.
-    func run() -> [TrainStop] {
+    func hobokenRun() -> [TrainStop] {
         [
             stop("Upper Montclair", -20, true),
             stop("Watchung Avenue", -15, true),
@@ -43,21 +43,21 @@ final class JourneyTests: XCTestCase {
     // MARK: Stop cursors
 
     func testFindsTheMostRecentDepartedAndTheNextStop() {
-        let stops = run()
+        let stops = hobokenRun()
         XCTAssertEqual(Journey.mostRecentDeparted(stops)?.name, "Newark Broad Street")
         XCTAssertEqual(Journey.nextStop(stops)?.name, "Hoboken")
         XCTAssertEqual(Journey.upcomingStops(stops).map(\.name), ["Hoboken"])
     }
 
     func testHandlesARunThatHasNotStarted() {
-        let stops = withDeparted(run(), false)
+        let stops = withDeparted(hobokenRun(), false)
         XCTAssertNil(Journey.mostRecentDeparted(stops))
         XCTAssertEqual(Journey.nextStop(stops)?.name, "Upper Montclair")
         XCTAssertEqual(Journey.upcomingStops(stops).count, 5)
     }
 
     func testHandlesAFinishedRunAndAnEmptyList() {
-        let stops = withDeparted(run(), true)
+        let stops = withDeparted(hobokenRun(), true)
         XCTAssertNil(Journey.nextStop(stops))
         XCTAssertEqual(Journey.upcomingStops(stops).count, 0)
         XCTAssertNil(Journey.mostRecentDeparted([]))
@@ -67,30 +67,30 @@ final class JourneyTests: XCTestCase {
     // MARK: journeyProgress
 
     func testIsZeroWhileTheTrainHasNotYetDepartedTheRidersOrigin() {
-        XCTAssertEqual(Journey.journeyProgress(withDeparted(run(), false), origin: watchungRef, dest: hobokenRef, now: now), 0)
+        XCTAssertEqual(Journey.journeyProgress(withDeparted(hobokenRun(), false), origin: watchungRef, dest: hobokenRef, now: now), 0)
     }
 
     func testInterpolatesBetweenTheLastDepartedStopAndTheNextOne() {
         // Departed Newark Broad (t=-2) heading to Hoboken (t=+18): train time
         // is now. Origin left at -15, destination at +18: 15/33 = 0.4545...
-        let p = Journey.journeyProgress(run(), origin: watchungRef, dest: hobokenRef, now: now)
+        let p = Journey.journeyProgress(hobokenRun(), origin: watchungRef, dest: hobokenRef, now: now)
         XCTAssertNotNil(p)
         XCTAssertGreaterThan(p ?? 0, 0.42)
         XCTAssertLessThan(p ?? 1, 0.49)
     }
 
     func testIsOneOnceTheDestinationStopHasDepartedOrArrived() {
-        XCTAssertEqual(Journey.journeyProgress(withDeparted(run(), true), origin: watchungRef, dest: hobokenRef, now: now), 1)
+        XCTAssertEqual(Journey.journeyProgress(withDeparted(hobokenRun(), true), origin: watchungRef, dest: hobokenRef, now: now), 1)
     }
 
     func testReturnsNilWhenOriginOrDestinationIsNotOnTheRun() {
-        XCTAssertNil(Journey.journeyProgress(run(), origin: pennRef, dest: hobokenRef, now: now))
-        XCTAssertNil(Journey.journeyProgress(run(), origin: watchungRef, dest: pennRef, now: now))
+        XCTAssertNil(Journey.journeyProgress(hobokenRun(), origin: pennRef, dest: hobokenRef, now: now))
+        XCTAssertNil(Journey.journeyProgress(hobokenRun(), origin: watchungRef, dest: pennRef, now: now))
         XCTAssertNil(Journey.journeyProgress([], origin: watchungRef, dest: hobokenRef, now: now))
     }
 
     func testJourneyProgressFailsSafelyWhenStopTimesAreMissing() {
-        let stops = run().map { var s = $0; s.time = nil; return s }
+        let stops = hobokenRun().map { var s = $0; s.time = nil; return s }
         let p = Journey.journeyProgress(stops, origin: watchungRef, dest: hobokenRef, now: now)
         XCTAssertNotNil(p)
         XCTAssertGreaterThanOrEqual(p ?? -1, 0)

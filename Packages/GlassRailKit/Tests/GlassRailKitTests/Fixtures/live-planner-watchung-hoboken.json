@@ -1,0 +1,111 @@
+{
+ "data": {
+  "getTripPlannerSchedule": [
+   {
+    "duration": "1 hr 8 min",
+    "legs": [
+     {
+      "block": "6230",
+      "offStopDescription": "SECAUCUS UPPER LEVEL",
+      "offStopTime": "12:31 PM",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "11:58 AM",
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION"
+     },
+     {
+      "block": "1114",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "1:06 PM",
+      "onStopDescription": "SECAUCUS LOWER LEVEL",
+      "onStopTime": "12:54 PM",
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": "HOBOKEN"
+     },
+     {
+      "block": null,
+      "offStopDescription": null,
+      "offStopTime": "1:06 PM",
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "1:06 PM",
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": null
+     }
+    ]
+   },
+   {
+    "duration": "1 hr 15 min",
+    "legs": [
+     {
+      "block": "6230",
+      "offStopDescription": "SECAUCUS UPPER LEVEL",
+      "offStopTime": "12:31 PM",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "11:58 AM",
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION"
+     },
+     {
+      "block": "1168",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "1:13 PM",
+      "onStopDescription": "SECAUCUS LOWER LEVEL",
+      "onStopTime": "1:01 PM",
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": "HOBOKEN"
+     },
+     {
+      "block": null,
+      "offStopDescription": null,
+      "offStopTime": "1:13 PM",
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "1:13 PM",
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": null
+     }
+    ]
+   },
+   {
+    "duration": "1 hr 31 min",
+    "legs": [
+     {
+      "block": "6234",
+      "offStopDescription": "NEWARK BROAD ST",
+      "offStopTime": "1:19 PM",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "12:58 PM",
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION"
+     },
+     {
+      "block": "424",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "2:29 PM",
+      "onStopDescription": "NEWARK BROAD ST",
+      "onStopTime": "2:12 PM",
+      "route": "MNEG",
+      "routeType": "C",
+      "sign": "HOBOKEN"
+     },
+     {
+      "block": null,
+      "offStopDescription": null,
+      "offStopTime": "2:29 PM",
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "2:29 PM",
+      "route": "MNEG",
+      "routeType": "C",
+      "sign": null
+     }
+    ]
+   }
+  ]
+ }
+}

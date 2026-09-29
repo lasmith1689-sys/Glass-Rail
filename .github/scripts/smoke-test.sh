@@ -10,22 +10,47 @@ mkdir -p "$OUT"
 BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
 failures=0
 
-xcrun simctl boot "$UDID" 2>/dev/null || true
-xcrun simctl bootstatus "$UDID" -b
-xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
-xcrun simctl install "$UDID" "$APP"
+started=$SECONDS
+timeline=()
+mark() { timeline+=("$1 $((SECONDS - started))s"); echo "[$((SECONDS - started))s] $1"; }
+
+# run_limited <seconds> <command...>: macOS has no `timeout`, so a stuck simctl call can't hang the job.
+run_limited() {
+  local limit="$1"
+  shift
+  "$@" &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$waited" -ge "$limit" ]; then
+      kill -9 "$pid" 2>/dev/null
+      echo "timed out after ${limit}s: $*"
+      timeline+=("TIMEOUT($*)")
+      return 124
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  wait "$pid"
+}
+
+run_limited 120 xcrun simctl boot "$UDID" 2>/dev/null || true
+run_limited 600 xcrun simctl bootstatus "$UDID" -b >/dev/null || true
+mark booted
+run_limited 30 xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+run_limited 180 xcrun simctl install "$UDID" "$APP"
+mark installed
 
 alive() {
   # Read the whole list first: `| grep -q` exits early, launchctl dies of SIGPIPE, and with
   # pipefail that reads as "not running" even when the app is.
   local services
-  services=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null)
+  services=$(run_limited 30 xcrun simctl spawn "$UDID" launchctl list 2>/dev/null)
   [[ "$services" == *"UIKitApplication:$BUNDLE"* ]]
 }
 
 shoot() {
   for attempt in 1 2 3; do
-    xcrun simctl io "$UDID" screenshot --type=png "$OUT/$1.png" >/dev/null 2>&1
+    run_limited 30 xcrun simctl io "$UDID" screenshot --type=png "$OUT/$1.png" >/dev/null 2>&1
     [ "$(stat -f%z "$OUT/$1.png" 2>/dev/null || echo 0)" -gt 60000 ] && break
     echo "... $1 still loading (attempt $attempt)"
     sleep 4
@@ -36,12 +61,12 @@ shoot() {
 capture() {
   local name="$1" wait="$2"
   shift 2
-  xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
-  xcrun simctl launch "$UDID" "$BUNDLE" "$@" >/dev/null
+  run_limited 30 xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+  run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" >/dev/null
   sleep "$wait"
   if alive; then
     shoot "$name"
-    echo "captured $name"
+    mark "$name"
   else
     echo "::error title=Smoke test::Glass Rail is not running after ${wait}s ($name $*)"
     failures=$((failures + 1))
@@ -66,6 +91,8 @@ capture 09-stops-sheet 6 -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 -GlassRailSheet settings
 capture 11-widgets 6 -GlassRailDemo delayed -GlassRailWidgetGallery YES
 capture 12-theme-midnight 5 -GlassRailDemo delayed -GlassRailTheme midnight
+
+echo "::notice title=Smoke test timeline::${timeline[*]}"
 
 if [ "$failures" -gt 0 ]; then
   find ~/Library/Logs/DiagnosticReports -name "GlassRail*" -mmin -20 -print -exec head -120 {} \; 2>/dev/null

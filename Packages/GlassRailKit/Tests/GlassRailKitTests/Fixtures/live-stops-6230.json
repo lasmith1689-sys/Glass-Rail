@@ -1,0 +1,97 @@
+{
+ "data": {
+  "getTrainStopList": [
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Montclair State U",
+    "status": "",
+    "time": "11:46 AM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Montclair Heights",
+    "status": "",
+    "time": "11:50 AM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Mountain Avenue",
+    "status": "",
+    "time": "11:52 AM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Upper Montclair",
+    "status": "",
+    "time": "11:54 AM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Watchung Avenue",
+    "status": "",
+    "time": "11:57 AM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Walnut Street",
+    "status": "",
+    "time": "12:00 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Bay Street",
+    "status": "",
+    "time": "12:03 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Glen Ridge",
+    "status": "",
+    "time": "12:06 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Bloomfield",
+    "status": "",
+    "time": "12:09 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Watsessing Avenue",
+    "status": "",
+    "time": "12:11 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Newark Broad Street",
+    "status": "",
+    "time": "12:18 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "Secaucus Upper Lvl",
+    "status": "",
+    "time": "12:31 PM"
+   },
+   {
+    "departed": false,
+    "dropOff": "",
+    "name": "New York Penn Station",
+    "status": "",
+    "time": "12:44 PM"
+   }
+  ]
+ }
+}
