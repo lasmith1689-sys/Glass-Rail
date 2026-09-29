@@ -137,6 +137,10 @@ lifecycle_check() {
   fi
   run_limited 60 xcrun simctl launch "$UDID" com.apple.Preferences >/dev/null 2>&1
   sleep 6
+  # For the record: what the Dynamic Island shows once the app is in the background.
+  run_limited 30 xcrun simctl io "$UDID" screenshot --type=png "$OUT/04c-backgrounded.png" >/dev/null 2>&1
+  run_limited 60 "$OCR" "$OUT/04c-backgrounded.png" > "$OUT/ocr/04c-backgrounded.txt" 2>/dev/null
+  cat "$OUT/ocr/04c-backgrounded.txt" >> "$OCR_TXT"
   log=$(activity_log 2m)
   local ended
   ended=$(printf '%s\n' "$log" | grep "ended on suspend" | tail -1)
@@ -151,7 +155,8 @@ lifecycle_check() {
   # Rail?" from Settings and leave that alert over every later screen.)
   local back
   back=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" 2>&1)
-  sleep 8
+  # Long enough for a couple of the board's 10-second ticks after the replacement.
+  sleep 25
   log=$(activity_log 2m)
   after=$(printf '%s\n' "$log" | awk '/ended on suspend/ { seen = 1; next } seen')
   echo "::group::Live Activity log after returning to the app"
@@ -160,7 +165,7 @@ lifecycle_check() {
   if [[ "$after" == *"Live Activity started"* ]]; then
     local how="same process, pid ${back##*: }"
     [ "${back##*: }" = "$riding_pid" ] || how="relaunched: pid $riding_pid then ${back##*: }"
-    echo "::notice title=Live Activity::Back in the foreground ($how): a live activity replaced the ended one."
+    echo "::notice title=Live Activity::Back in the foreground ($how): a live activity replaced the ended one. Log since: $(printf '%s\n' "$after" | sed -E 's/^.*(Live Activit)/\1/' | tr '\n' '/' | cut -c1-900)"
   else
     echo "::error title=Live Activity::Returning to the app did not start a live activity again."
     failures=$((failures + 1))
