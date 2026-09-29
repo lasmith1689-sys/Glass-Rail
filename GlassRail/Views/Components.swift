@@ -31,7 +31,11 @@ struct RouteLine: View {
     let showsDot: Bool
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var shimmer = false
+
+    /// The shimmer runs only while the app is on screen and motion is allowed.
+    private var animating: Bool { !reduceMotion && scenePhase == .active }
 
     var body: some View {
         GeometryReader { proxy in
@@ -60,8 +64,18 @@ struct RouteLine: View {
             .frame(width: width, height: proxy.size.height)
         }
         .frame(height: 8)
-        .onAppear {
-            guard !reduceMotion else { return }
+        .onAppear { setShimmer(animating) }
+        .onChange(of: animating) { _, running in setShimmer(running) }
+    }
+
+    private func setShimmer(_ running: Bool) {
+        // Replacing the repeating animation with none stops it; a new one
+        // starts from rest on the next turn of the run loop.
+        var still = Transaction()
+        still.disablesAnimations = true
+        withTransaction(still) { shimmer = false }
+        guard running else { return }
+        DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
@@ -72,7 +86,11 @@ struct RouteLine: View {
 /// v4's pulsing green dot for LIVE.
 struct LiveDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var pulse = false
+
+    /// The pulse runs only while the app is on screen and motion is allowed.
+    private var animating: Bool { !reduceMotion && scenePhase == .active }
 
     var body: some View {
         ZStack {
@@ -86,8 +104,16 @@ struct LiveDot: View {
                 .frame(width: 8, height: 8)
         }
         .frame(width: 8, height: 8)
-        .onAppear {
-            guard !reduceMotion else { return }
+        .onAppear { setPulse(animating) }
+        .onChange(of: animating) { _, running in setPulse(running) }
+    }
+
+    private func setPulse(_ running: Bool) {
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) { pulse = false }
+        guard running else { return }
+        DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 2).repeatForever(autoreverses: false)) {
                 pulse = true
             }

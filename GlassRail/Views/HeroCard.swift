@@ -58,8 +58,13 @@ private struct HeroDetails: View {
         guard let note = trip.statusNote, !note.isEmpty else { return false }
         return view.cancelled || (view.delayed && view.delayMinutes == nil)
     }
+    /// "On time" is an operational claim, so like every alert it only comes
+    /// from live data: the bundled sample's fixture trips carry `.onTime` too.
+    private var showsOnTime: Bool {
+        state.alerts && !view.delayed && !view.cancelled && view.trackChange == nil && trip.status == .onTime
+    }
     private var showsBadgeRow: Bool {
-        view.delayed || view.cancelled || view.trackChange != nil || state.isPinned || trip.status == .onTime
+        view.delayed || view.cancelled || view.trackChange != nil || state.isPinned || showsOnTime
     }
 
     var body: some View {
@@ -144,7 +149,7 @@ private struct HeroDetails: View {
                     .grFont(11.8, .semibold, style: .footnote, digits: true)
                     .foregroundStyle(theme.ink.opacity(0.85))
             }
-            if !view.delayed && !view.cancelled && view.trackChange == nil && trip.status == .onTime {
+            if showsOnTime {
                 OnTimeChip()
             }
         }
