@@ -60,6 +60,12 @@ for bundle in "$app" "$widget"; do
   fi
 done
 echo "::notice title=App Store archive::Both bundles carry the App Group $group."
+# iPhone only: an iPad-capable bundle must support every orientation, which this app does not.
+family=$(plutil -extract UIDeviceFamily json -o - "$app/Info.plist" 2>/dev/null || true)
+if [ "$family" != "[1]" ]; then
+  echo "::error::The app declares device family ${family:-none}; it must be [1] (iPhone only)."
+  exit 1
+fi
 # App Store Connect rejects a bundle without this key (error 90474), so catch it here.
 if ! plutil -extract UISupportedInterfaceOrientations json -o - "$app/Info.plist" >/dev/null 2>&1; then
   echo "::error::Info.plist has no UISupportedInterfaceOrientations, which App Store Connect rejects."
