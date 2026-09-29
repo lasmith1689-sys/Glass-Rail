@@ -86,6 +86,14 @@ public struct BoardState: Equatable, Sendable {
     public var progress: Double
 }
 
+extension BoardState {
+    /// v4's "On time" chip. It is an operational claim, so like every alert it
+    /// needs live data: the bundled sample's trips carry an on-time status too.
+    public func showsOnTime(_ view: TripView) -> Bool {
+        alerts && !view.delayed && !view.cancelled && view.trackChange == nil && view.trip.status == .onTime
+    }
+}
+
 /// Port of the derivations in v4's app/board.tsx, as one pure function so the
 /// app and the widget show the same train and it can be unit tested.
 public enum BoardEngine {

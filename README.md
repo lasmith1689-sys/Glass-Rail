@@ -93,7 +93,7 @@ when NJ Transit answered with no trains.
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 226 tests: v4's 138 vitest cases, one XCTest each, plus 88 more for the NJ Transit parser and client (including replies captured from the live feed, and planner outages), the board engine, the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 227 tests: v4's 138 vitest cases, one XCTest each, plus 89 more for the NJ Transit parser and client (including replies captured from the live feed, and planner outages), the board engine, the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |

@@ -120,6 +120,21 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertFalse(compute(payload([], kind: .sample)).noService)
     }
 
+    func testTheOnTimeChipNeedsLiveData() {
+        let sample = SampleFixture.payload(now: morning)
+        let sampleState = compute(sample)
+        guard let sampleHero = sampleState.hero else { return XCTFail("expected a hero") }
+        XCTAssertEqual(sampleHero.trip.trainId, "1067")
+        XCTAssertEqual(sampleHero.trip.status, .onTime, "the fixture itself says on time")
+        XCTAssertFalse(sampleState.showsOnTime(sampleHero), "SAMPLE never claims a train is on time")
+
+        var live = sample
+        live.source.kind = .live
+        let liveState = compute(live)
+        guard let liveHero = liveState.hero else { return XCTFail("expected a hero") }
+        XCTAssertTrue(liveState.showsOnTime(liveHero))
+    }
+
     func testStaleAfterTwoFailedRefreshes() {
         XCTAssertEqual(compute(payload(weekday), failures: 1).feedMode, .live)
         XCTAssertEqual(compute(payload(weekday), failures: 2).feedMode, .stale)
