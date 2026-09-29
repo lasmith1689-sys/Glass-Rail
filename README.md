@@ -30,8 +30,8 @@ is, and when to say a train has departed.
   after arrival, and is remembered for 3 hours across relaunches.
 - **"Train N has departed"** for 12 seconds when the featured train leaves.
 - **Freshness**: `LIVE` only for genuinely live data; `STALE` ("Data may be outdated.") after 3.5
-  minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays or
-  track changes.
+  minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays,
+  track changes or an "On time" chip.
 - **No service**: when your station has no trains (the Montclair Branch runs none north of Bay Street
   on weekends), it says so and lists the next trains from Bay Street.
 - Refreshes every 60 seconds, on returning to the app, with pull to refresh, and with the Refresh
@@ -44,17 +44,33 @@ inline on the Lock Screen. It shows the next train for the current direction (by
 app), its true departure time with a live countdown, its track and any delay or cancellation; medium
 adds the next three trains. Its timeline carries an entry for each upcoming departure and for the
 2 PM switch, and asks for a fresh one every 5 to 10 minutes (iOS decides how often it actually
-reloads). Tapping it opens the app. The destination and look come from the app through the App Group
-`group.com.lasmith1689.GlassRail`.
+reloads). The inline Lock Screen line keeps to the time plus one thing: the track, the delay
+("+6m") or "Cancelled". Tapping it opens the app. The destination and look come from the app
+through the App Group `group.com.lasmith1689.GlassRail`.
 
 ## Live Activity
 
-Pinning a train also starts a Live Activity on the Lock Screen and in the Dynamic Island: the true
-pickup and drop-off times with each leg's lateness, the track, the train's position, and a countdown
-to pickup and then to drop-off. It stays current while the app is running and ends when you tap
-"Pinned · show next" or a few minutes after arrival. There is no push server, so while the app is
-suspended the activity keeps its last times (its countdowns keep running) and shows "Not updating"
-once it goes stale.
+Pinning a train also starts a Live Activity: the true pickup and drop-off times with each leg's
+lateness, how far away each one is ("in 4 minutes", then "3 minutes ago"), the track, a journey bar
+from your stop to your destination, and when the data was last updated with the train's position
+as of then. There is no push server, so the app can only change the activity while it runs, and it
+is built around that:
+
+- **While Glass Rail is open**, the activity is live and follows the board (true times, track,
+  position). It ends when you tap "Pinned · show next" or pin another train.
+- **When you leave the app or lock the phone**, the activity is ended with its latest times and a
+  dismissal time of 3 minutes after arrival. iOS removes it then, even if the app never runs again.
+  Nothing on it reads the clock: the relative times and the journey bar are drawn by iOS from the
+  ride's dates, so it moves from pickup to drop-off on its own. Delays that change after you left
+  the app are not shown ("Updated 2:31 PM" says how old the times are).
+- **When you come back** during the ride, a fresh live activity replaces the ended one.
+- A ride that is over is ended right away, even when the board has switched direction at 2 PM or
+  midnight in the meantime.
+
+An ended Live Activity is not shown in the Dynamic Island, so the Dynamic Island shows the ride only
+while the activity is live (its countdown switches from pickup to drop-off at the pickup time on
+its own). Keeping it there after you leave the app would need a push server; ending it is what
+guarantees it cannot linger on the Lock Screen after the ride.
 
 ## Where the data comes from
 
@@ -62,19 +78,22 @@ The phone talks to NJ Transit's public GraphQL endpoint directly
 (`https://www.njtransit.com/api/graphql/graphql`, no API key), with exactly the queries and the one
 header v4 sent: `getTripPlannerSchedule` (four lookups spread over the next few hours per direction),
 `getTrainDepartureScreens` (tracks and status per origin station) and `getTrainStopList` (live stop
-times, up to eight trains per refresh). There is no server. The widget fetches only the two
-directions for your chosen terminal, and reuses the app's data when the app refreshed in the last two
-minutes.
+times, up to eight trains per refresh). There is no server. The widget reuses the app's data when
+it is at most 5 minutes old; otherwise it fetches only the two directions for your chosen terminal,
+with two planner lookups each (now and 75 minutes out).
 
 If NJ Transit can't be reached, the board keeps the last live data (turning `STALE`); with nothing to
-show at all it falls back to the bundled sample, labeled `SAMPLE`.
+show at all it falls back to the bundled sample, labeled `SAMPLE`. A planner that fails for any
+direction counts as a failed refresh too (all of its lookups, or the first one, which covers the next
+trains), so an outage never shows up as "No trains" under a `LIVE` badge; that message only appears
+when NJ Transit answered with no trains.
 
 ## Project layout
 
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 204 tests: v4's 138 vitest cases, one XCTest each, plus 66 more for the NJ Transit parser and client (including replies captured from the live feed), the board engine, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 226 tests: v4's 138 vitest cases, one XCTest each, plus 88 more for the NJ Transit parser and client (including replies captured from the live feed, and planner outages), the board engine, the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -89,7 +108,11 @@ GitHub Actions is the only build machine. Every push runs CI (`.github/workflows
 1. `swift test` for GlassRailKit on macOS, twice (the second time with the machine in India's time
    zone, to prove times never depend on the phone's zone).
 2. A Simulator build of the app and widget, then a smoke test that launches it with live data and
-   with each QA scenario, checks it keeps running, screenshots each screen and reads the text back.
+   with each QA scenario, screenshots each screen and reads the text back. Every screen must show
+   "Glass Rail" and its scenario's own text (`DELAYED`, `TRACK CHANGED`, `STALE`, `SAMPLE` with no
+   delay or on-time claim, and so on), with a few more looks for a slow runner, or the job fails. In
+   the riding scenario it also checks that leaving the app ends the Live Activity with a dismissal
+   time and that coming back starts a live one again.
 3. An App Store archive dry run that checks both bundles carry the App Group, then stops with
    "Nothing was uploaded".
 4. An informational live probe of NJ Transit's feed from the runner.
@@ -114,7 +137,7 @@ launch arguments (used by CI's smoke test):
 | `-GlassRailDemo sample` | Sample data (no alerts) |
 | `-GlassRailDemo riding` | A pinned train mid-ride, which then drops off the feed |
 | `-GlassRailSheet later\|stops\|settings` | Opens that sheet |
-| `-GlassRailWidgetGallery YES` | The widget layouts, rendered in the app |
+| `-GlassRailWidgetGallery YES` | The widget layouts and the Live Activity's Lock Screen layout, rendered in the app |
 | `-GlassRailTheme midnight` | A theme, without saving it |
 
 ## Differences from v4
@@ -122,6 +145,8 @@ launch arguments (used by CI's smoke test):
 - No server. v4's `/api/trains` and `/api/stops` ran on Vercel; the phone now makes those calls.
   When NJ Transit fails, v4's server replaced the board with sample data; the app keeps the last live
   data and marks it `STALE` instead, and uses the sample only when it has nothing else.
+- v4 ignored failed planner lookups, so a planner outage read as "No trains from Watchung Ave". The
+  app treats it as a failed refresh (see above).
 - A manual AM/PM flip lapses at the next 2 PM or midnight boundary. v4's rule, ported unchanged,
   would honour a morning flip to PM again the next morning; v4 never hit this because a reload
   dropped the flip, but an iOS app can stay in memory for days.
@@ -132,8 +157,5 @@ launch arguments (used by CI's smoke test):
 - The widget follows the clock and ignores pins and manual flips.
 - With nothing left to show this way on sample or stale data, the hero says "No more trains this
   way" rather than v4's "No trains from Watchung Ave", which is reserved for live data.
-
-One v4 quirk is kept on purpose, because the port follows v4's code: live stop times can mark a
-train late even in `SAMPLE` mode (v4.2's true-time path does not check the sample flag), which is
-visible in the `sample` QA scenario. The bundled fallback itself carries no stop lists, so it only
-matters when stop lists load while the planner does not.
+- Sample data never shows a train as late or on time. v4.2's true-time path applied live stop
+  times even in `SAMPLE` mode; the app uses stop-list timing only with live data.
