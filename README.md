@@ -47,6 +47,15 @@ adds the next three trains. Its timeline carries an entry for each upcoming depa
 reloads). Tapping it opens the app. The destination and look come from the app through the App Group
 `group.com.lasmith1689.GlassRail`.
 
+## Live Activity
+
+Pinning a train also starts a Live Activity on the Lock Screen and in the Dynamic Island: the true
+pickup and drop-off times with each leg's lateness, the track, the train's position, and a countdown
+to pickup and then to drop-off. It stays current while the app is running and ends when you tap
+"Pinned · show next" or a few minutes after arrival. There is no push server, so while the app is
+suspended the activity keeps its last times (its countdowns keep running) and shows "Not updating"
+once it goes stale.
+
 ## Where the data comes from
 
 The phone talks to NJ Transit's public GraphQL endpoint directly
@@ -65,7 +74,7 @@ show at all it falls back to the bundled sample, labeled `SAMPLE`.
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | v4's 138 test cases, one XCTest per vitest case, plus tests for the NJ Transit parser (including real captured replies), the board engine and widget timelines. |
+| `Packages/GlassRailKit/Tests` | 204 tests: v4's 138 vitest cases, one XCTest each, plus 66 more for the NJ Transit parser and client (including replies captured from the live feed), the board engine, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -121,3 +130,10 @@ launch arguments (used by CI's smoke test):
 - The Liquid theme keeps v4's palette and highlight but not the tilt-to-move effect; the controls use
   iOS 26 Liquid Glass instead.
 - The widget follows the clock and ignores pins and manual flips.
+- With nothing left to show this way on sample or stale data, the hero says "No more trains this
+  way" rather than v4's "No trains from Watchung Ave", which is reserved for live data.
+
+One v4 quirk is kept on purpose, because the port follows v4's code: live stop times can mark a
+train late even in `SAMPLE` mode (v4.2's true-time path does not check the sample flag), which is
+visible in the `sample` QA scenario. The bundled fallback itself carries no stop lists, so it only
+matters when stop lists load while the planner does not.

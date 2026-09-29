@@ -53,6 +53,13 @@ enum WidgetText {
         return nil
     }
 
+    /// "+6m" or "Cancelled", for the tightest layouts.
+    static func shortStatus(_ train: WidgetTrain) -> String? {
+        if train.cancelled { return "Cancelled" }
+        if train.delayed { return train.delayMinutes.map { "+\($0)m" } ?? "Late" }
+        return nil
+    }
+
     static func track(_ train: WidgetTrain) -> String {
         train.track.map { "Tk \($0)" } ?? "Tk --"
     }
@@ -62,10 +69,14 @@ enum WidgetText {
 struct DepartureCountdown: View {
     let from: Date
     let departure: Date
+    var prefix: String?
 
     var body: some View {
         if departure > from {
-            Text(timerInterval: from...departure, countsDown: true, showsHours: true)
+            HStack(spacing: 4) {
+                if let prefix { Text(prefix) }
+                Text(timerInterval: from...departure, countsDown: true, showsHours: true)
+            }
         } else {
             Text("Now")
         }
@@ -102,7 +113,7 @@ struct SmallTrainWidget: View {
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                DepartureCountdown(from: snapshot.date, departure: train.departure)
+                DepartureCountdown(from: snapshot.date, departure: train.departure, prefix: "in")
                     .font(.system(size: 15, weight: .semibold).monospacedDigit())
                     .foregroundStyle(theme.ink.opacity(0.9))
                 Spacer(minLength: 4)
@@ -209,14 +220,13 @@ struct RectangularTrainWidget: View {
                     .minimumScaleFactor(0.8)
                 HStack(spacing: 4) {
                     if train.departure > snapshot.date {
-                        Text("Leaves in")
-                        DepartureCountdown(from: snapshot.date, departure: train.departure)
-                            .frame(maxWidth: 58, alignment: .leading)
+                        DepartureCountdown(from: snapshot.date, departure: train.departure, prefix: "Leaves in")
                     } else {
                         Text("Leaving now")
                     }
-                    if let status = WidgetText.status(train) {
-                        Text("· \(status.text)").fontWeight(.semibold)
+                    Spacer(minLength: 4)
+                    if let status = WidgetText.shortStatus(train) {
+                        Text(status).fontWeight(.bold)
                     }
                 }
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
@@ -241,8 +251,9 @@ struct InlineTrainWidget: View {
 
     var body: some View {
         if let train = snapshot.next {
+            let status = WidgetText.shortStatus(train).map { " · " + $0 } ?? ""
             Label {
-                Text("\(Format.time(train.departure)) · \(WidgetText.track(train))\(train.delayed ? " · late" : "")")
+                Text(Format.time(train.departure) + " · " + WidgetText.track(train) + status)
             } icon: {
                 Image(systemName: "tram.fill")
             }
