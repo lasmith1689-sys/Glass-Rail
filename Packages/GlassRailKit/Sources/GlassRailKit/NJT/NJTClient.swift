@@ -101,24 +101,45 @@ public struct NJTClient: Sendable {
         return data["getTripPlannerSchedule"]?.arrayValue ?? []
     }
 
-    /// Four planner lookups spread over the next few hours. A failed lookup
-    /// contributes nothing rather than failing the window.
-    public func fetchTripPlannerWindow(origin: String, destination: String) async -> [JSON] {
+    /// Planner lookups spread over the next few hours (four for the app, see
+    /// `NJTQueries.plannerOffsetsMinutes`), with a record of which ones failed.
+    public func plannerWindow(origin: String, destination: String, offsets: [Int] = NJTQueries.plannerOffsetsMinutes) async -> PlannerWindow {
         let base = clock()
-        let offsets = NJTQueries.plannerOffsetsMinutes
-        let results = await withTaskGroup(of: (Int, [JSON]).self) { group -> [Int: [JSON]] in
+        let results = await withTaskGroup(of: (Int, Result<[JSON], Error>).self) { group -> [Int: Result<[JSON], Error>] in
             for (index, minutes) in offsets.enumerated() {
                 group.addTask {
                     let at = base.addingTimeInterval(Double(minutes) * 60)
-                    let list = (try? await fetchTripPlanner(origin: origin, destination: destination, at: at)) ?? []
-                    return (index, list)
+                    do {
+                        return (index, .success(try await fetchTripPlanner(origin: origin, destination: destination, at: at)))
+                    } catch {
+                        return (index, .failure(error))
+                    }
                 }
             }
-            var collected: [Int: [JSON]] = [:]
-            for await (index, list) in group { collected[index] = list }
+            var collected: [Int: Result<[JSON], Error>] = [:]
+            for await (index, result) in group { collected[index] = result }
             return collected
         }
-        return offsets.indices.flatMap { results[$0] ?? [] }
+        var window = PlannerWindow(origin: origin, destination: destination, lookups: offsets.count)
+        for index in offsets.indices {
+            switch results[index] {
+            case .success(let list)?:
+                window.itineraries.append(contentsOf: list)
+            case .failure(let error)?:
+                window.failedLookups.append(index)
+                if window.reason == nil {
+                    window.reason = (error as? LocalizedError)?.errorDescription ?? "unavailable"
+                }
+            case nil:
+                window.failedLookups.append(index)
+            }
+        }
+        return window
+    }
+
+    /// The itineraries from `plannerWindow`, for callers that only need them.
+    public func fetchTripPlannerWindow(origin: String, destination: String) async -> [JSON] {
+        await plannerWindow(origin: origin, destination: destination).itineraries
     }
 
     // MARK: Boards and trips
@@ -150,38 +171,54 @@ public struct NJTClient: Sendable {
         }
     }
 
-    private func trips(for pairs: [ODPair], boards: [String: [String: BoardEntry]]) async -> [[Trip]] {
+    /// Trips per pair, in pair order, plus the failure message of each pair
+    /// whose planner window failed (see `PlannerWindow.failed`).
+    private func trips(for pairs: [ODPair], boards: [String: [String: BoardEntry]], offsets: [Int]) async -> (groups: [[Trip]], failures: [Int: String]) {
         let baseNow = clock()
-        let groups = await withTaskGroup(of: (Int, [Trip]).self) { group -> [Int: [Trip]] in
+        let results = await withTaskGroup(of: (Int, [Trip], String?).self) { group -> [Int: ([Trip], String?)] in
             for (index, pair) in pairs.enumerated() {
                 group.addTask {
                     guard let from = Stations.station(pair.fromId), let to = Stations.station(pair.toId) else {
-                        return (index, [])
+                        return (index, [], nil)
                     }
-                    let itineraries = await fetchTripPlannerWindow(origin: from.plannerName, destination: to.plannerName)
+                    let window = await plannerWindow(origin: from.plannerName, destination: to.plannerName, offsets: offsets)
                     let trips = NJTParse.normalizeItineraries(
-                        itineraries,
+                        window.itineraries,
                         fromId: pair.fromId,
                         toId: pair.toId,
                         boardIndex: boards[pair.fromId] ?? [:],
                         baseNow: baseNow
                     )
-                    return (index, trips)
+                    return (index, trips, window.failed ? window.failureMessage : nil)
                 }
             }
-            var collected: [Int: [Trip]] = [:]
-            for await (index, trips) in group { collected[index] = trips }
+            var collected: [Int: ([Trip], String?)] = [:]
+            for await (index, trips, failure) in group { collected[index] = (trips, failure) }
             return collected
         }
-        return pairs.indices.map { groups[$0] ?? [] }
+        let groups = pairs.indices.map { results[$0]?.0 ?? [] }
+        var failures: [Int: String] = [:]
+        for index in pairs.indices {
+            if let failure = results[index]?.1 { failures[index] = failure }
+        }
+        return (groups, failures)
     }
 
     /// Every direction's upcoming trips, with tracks and status from each
     /// origin's departure board. Directions that come back empty are retried
     /// from the nearest station with service (the Montclair Branch runs no
-    /// weekend trains north of Bay Street). Throws only when nothing at all
-    /// came back and something failed.
-    public func fetchLivePayload(pairs: [ODPair] = Alternates.defaultPairs()) async throws -> Payload {
+    /// weekend trains north of Bay Street).
+    ///
+    /// Throws when nothing at all came back and something failed, and when
+    /// any direction's planner window failed: an empty direction must mean
+    /// "no trains", never "NJ Transit didn't answer", so an outage makes the
+    /// board keep its last data (and turn STALE) instead of claiming there is
+    /// no service. A failed departure board only costs tracks and status, so
+    /// it still yields a (partial) payload.
+    public func fetchLivePayload(
+        pairs: [ODPair] = Alternates.defaultPairs(),
+        plannerOffsets: [Int] = NJTQueries.plannerOffsetsMinutes
+    ) async throws -> Payload {
         var stationIds: [String] = []
         for pair in pairs where !stationIds.contains(pair.fromId) {
             stationIds.append(pair.fromId)
@@ -198,8 +235,13 @@ public struct NJTClient: Sendable {
         primary.failures.forEach(record)
         var boardIndexes = primary.indexes
 
-        let tripGroups = await trips(for: pairs, boards: boardIndexes)
+        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets)
+        let tripGroups = primaryTrips.groups
         var allTrips = tripGroups.flatMap { $0 }
+        let plannerFailures = pairs.indices.compactMap { primaryTrips.failures[$0] }
+        if !plannerFailures.isEmpty {
+            throw NJTError.feed((failures + plannerFailures).joined(separator: " | "))
+        }
 
         let emptyKeys = Set(pairs.indices.filter { tripGroups[$0].isEmpty }.map { pairs[$0].key })
         let extraPairs = Alternates.substitutePairs(
@@ -215,10 +257,15 @@ public struct NJTClient: Sendable {
             }
             let extra = await boards(for: extraStations)
             for (id, index) in extra.indexes { boardIndexes[id] = index }
-            let extraGroups = await trips(for: extraPairs, boards: boardIndexes)
-            allTrips.append(contentsOf: extraGroups.flatMap { $0 })
+            let extraTrips = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets)
+            allTrips.append(contentsOf: extraTrips.groups.flatMap { $0 })
+            // The nearby station's list is what the board offers instead, so
+            // it must not silently vanish either.
+            let extraFailures = extraPairs.indices.compactMap { extraTrips.failures[$0] }
+            if !extraFailures.isEmpty {
+                throw NJTError.feed((failures + extraFailures).joined(separator: " | "))
+            }
         }
-
         if allTrips.isEmpty && !failures.isEmpty {
             throw NJTError.feed(failures.joined(separator: " | "))
         }
@@ -261,5 +308,39 @@ public struct NJTClient: Sendable {
             }
             return runs
         }
+    }
+}
+
+/// One direction's planner lookups (see `NJTClient.plannerWindow`).
+public struct PlannerWindow: Sendable {
+    public var origin: String
+    public var destination: String
+    /// How many lookups were made.
+    public var lookups: Int
+    /// Every itinerary returned, in lookup order.
+    public var itineraries: [JSON] = []
+    /// Indexes (into the offsets) of the lookups that failed.
+    public var failedLookups: [Int] = []
+    /// NJ Transit's reason for the first failure.
+    public var reason: String?
+
+    public init(origin: String, destination: String, lookups: Int) {
+        self.origin = origin
+        self.destination = destination
+        self.lookups = lookups
+    }
+
+    /// The window can't be trusted when every lookup failed, or when the
+    /// first one did: that lookup covers the next trains, so without it the
+    /// board would feature a train an hour or more away as "next".
+    /// Later lookups failing only shortens how far ahead the board sees.
+    public var failed: Bool {
+        guard lookups > 0 else { return false }
+        return failedLookups.count >= lookups || failedLookups.contains(0)
+    }
+
+    /// "Watchung Avenue Station to Hoboken Terminal planner: NJT public feed HTTP 500"
+    public var failureMessage: String {
+        "\(origin) to \(destination) planner: \(reason ?? "unavailable")"
     }
 }

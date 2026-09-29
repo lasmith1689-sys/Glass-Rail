@@ -223,6 +223,100 @@ final class NJTClientTests: XCTestCase {
         XCTAssertEqual(payload.trips.count, 4)
     }
 
+    // MARK: Planner outages
+
+    /// Watchung Avenue to Hoboken fails with `failing` for the lookups at the
+    /// given Eastern clock times (all of them when nil); everything else answers.
+    func outage(times failing: Set<String>?) -> FakeNJT {
+        FakeNJT { operation, variables in
+            if operation == "board" { return FakeNJT.emptyBoard }
+            let origin = variables["origin"].jsString
+            let destination = variables["destination"].jsString
+            if origin == "Watchung Avenue Station", destination == "Hoboken Terminal" {
+                if failing == nil || failing!.contains(variables["time"].jsString) {
+                    return NJTHTTPResponse(status: 500, body: Data("{}".utf8))
+                }
+                return FakeNJT.planner(train: "1082", at: "11:21:00 AM", arrive: "12:00:00 PM")
+            }
+            return FakeNJT.planner(train: "1207", at: "10:21:00 AM", arrive: "11:00:00 AM")
+        }
+    }
+
+    func testAPlannerOutageForOneDirectionFailsTheWholeFetch() async {
+        let fake = outage(times: nil)
+        do {
+            _ = try await client(fake).fetchLivePayload()
+            XCTFail("an unanswered direction must not come back as a live board with no trains")
+        } catch {
+            guard case .feed(let message)? = error as? NJTError else {
+                return XCTFail("unexpected error \(error)")
+            }
+            XCTAssertEqual(message, "Watchung Avenue Station to Hoboken Terminal planner: NJT public feed HTTP 500")
+        }
+        // Not mistaken for "no service here": nothing is retried from Bay Street.
+        XCTAssertFalse(fake.calls.contains { $0.variables["origin"].jsString == "Bay Street Station" })
+    }
+
+    func testAFailedFirstLookupFailsTheDirection() async {
+        do {
+            _ = try await client(outage(times: ["9:45 AM"])).fetchLivePayload()
+            XCTFail("without the first lookup the board would feature a train hours away as next")
+        } catch {
+            XCTAssertNotNil(error as? NJTError)
+        }
+    }
+
+    func testLaterLookupFailuresOnlyShortenTheWindow() async throws {
+        let payload = try await client(outage(times: ["12:15 PM", "1:30 PM"])).fetchLivePayload()
+        XCTAssertEqual(payload.source.kind, .live)
+        XCTAssertTrue(payload.trips.contains { $0.fromId == "watchung" && $0.toId == "hoboken" && $0.trainId == "1082" })
+    }
+
+    func testThePlannerWindowRecordsWhichLookupsFailed() async {
+        let all = await client(outage(times: nil)).plannerWindow(origin: "Watchung Avenue Station", destination: "Hoboken Terminal")
+        XCTAssertEqual(all.lookups, 4)
+        XCTAssertEqual(all.failedLookups, [0, 1, 2, 3])
+        XCTAssertTrue(all.failed)
+        XCTAssertEqual(all.reason, "NJT public feed HTTP 500")
+
+        let first = await client(outage(times: ["9:45 AM"])).plannerWindow(origin: "Watchung Avenue Station", destination: "Hoboken Terminal")
+        XCTAssertEqual(first.failedLookups, [0])
+        XCTAssertTrue(first.failed)
+
+        let later = await client(outage(times: ["11:00 AM"])).plannerWindow(origin: "Watchung Avenue Station", destination: "Hoboken Terminal")
+        XCTAssertEqual(later.failedLookups, [1])
+        XCTAssertFalse(later.failed)
+        XCTAssertEqual(later.itineraries.count, 3)
+    }
+
+    func testAnEmptyAnswerIsNoServiceNotAnOutage() async throws {
+        let fake = FakeNJT { operation, _ in operation == "board" ? FakeNJT.emptyBoard : FakeNJT.emptyPlanner }
+        let payload = try await client(fake).fetchLivePayload()
+        XCTAssertEqual(payload.source.kind, .live)
+        XCTAssertTrue(payload.trips.isEmpty)
+        let state = BoardEngine.compute(BoardInputs(payload: payload, now: base, destinationId: "hoboken"))
+        XCTAssertTrue(state.noService, "a planner that answered with nothing is a genuine no-service board")
+    }
+
+    func testAnOutageInTheNearbyStationsListAlsoFailsTheFetch() async {
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" { return FakeNJT.emptyBoard }
+            if variables["origin"].jsString == "Bay Street Station" || variables["destination"].jsString == "Bay Street Station" {
+                return NJTHTTPResponse(status: 503, body: Data("{}".utf8))
+            }
+            return FakeNJT.emptyPlanner // Watchung Avenue: no weekend service
+        }
+        do {
+            _ = try await client(fake).fetchLivePayload()
+            XCTFail("expected an error")
+        } catch {
+            guard case .feed(let message)? = error as? NJTError else {
+                return XCTFail("unexpected error \(error)")
+            }
+            XCTAssertTrue(message.hasPrefix("Bay Street Station to Hoboken Terminal planner: NJT public feed HTTP 503"), message)
+        }
+    }
+
     // MARK: Stop lists
 
     func testFetchesRunsSkippingFailuresEmptyListsAndInvalidIds() async {
