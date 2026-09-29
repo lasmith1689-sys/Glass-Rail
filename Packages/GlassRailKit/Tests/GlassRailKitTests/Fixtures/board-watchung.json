@@ -1,0 +1,14 @@
+{
+  "data": {
+    "getTrainDepartureScreens": {
+      "items": [
+        { "departureDate": "03-Aug-2026 09:51:00 AM", "destination": "Hoboken &#9992;", "inlineMessage": "", "lineAbbreviation": "MOBO", "status": "in 5 Min", "track": "2", "trainID": "1074" },
+        { "departureDate": "03-Aug-2026 10:13:00 AM", "destination": "Hoboken", "inlineMessage": "Delayed 6 min", "lineAbbreviation": "MOBO", "status": "<b>DELAYED</b>", "track": " 1 ", "trainID": "1078" },
+        { "departureDate": "03-Aug-2026 10:43:00 AM", "destination": "Hoboken", "inlineMessage": "Bus &amp; rail", "lineAbbreviation": "MOBO", "status": "Cancelled", "track": "", "trainID": "1082" },
+        { "departureDate": "03-Aug-2026 11:13:00 AM", "destination": "Hoboken", "inlineMessage": null, "lineAbbreviation": "MOBO", "status": "OnTime", "track": null, "trainID": "1086" },
+        { "departureDate": "03-Aug-2026 09:51:00 AM", "destination": "Hoboken", "inlineMessage": "duplicate", "lineAbbreviation": "MOBO", "status": "DELAYED", "track": "9", "trainID": "1074" },
+        { "departureDate": "03-Aug-2026 12:00:00 PM", "destination": "Hoboken", "inlineMessage": "", "lineAbbreviation": "MOBO", "status": "", "track": "", "trainID": "" }
+      ]
+    }
+  }
+}

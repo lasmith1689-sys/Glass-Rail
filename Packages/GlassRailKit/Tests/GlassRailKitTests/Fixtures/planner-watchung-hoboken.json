@@ -1,0 +1,45 @@
+{
+  "data": {
+    "getTripPlannerSchedule": [
+      {
+        "duration": "39",
+        "legs": [
+          { "route": "MOBO", "routeType": "W", "sign": null, "onStopDescription": "HOME", "onStopTime": "03-Aug-2026 09:40:00 AM", "offStopDescription": "WATCHUNG AVENUE", "offStopTime": "03-Aug-2026 09:48:00 AM", "block": "" },
+          { "route": "MOBO", "routeType": "C", "sign": "HOBOKEN", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "03-Aug-2026 09:51:00 AM", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 10:30:00 AM", "block": "1074" }
+        ]
+      },
+      {
+        "duration": "52",
+        "legs": [
+          { "route": "MOBO", "routeType": "C", "sign": "NEWARK", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "03-Aug-2026 09:51:00 AM", "offStopDescription": "NEWARK BROAD ST UPPER LEVEL", "offStopTime": "03-Aug-2026 10:14:00 AM", "block": "1074" },
+          { "route": "MOBO", "routeType": "C", "sign": "HOBOKEN", "onStopDescription": "", "onStopTime": "03-Aug-2026 10:20:00 AM", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 10:43:00 AM", "block": "6222" }
+        ]
+      },
+      {
+        "duration": "56",
+        "legs": [
+          { "route": "MOBO", "routeType": "C", "sign": "NEWARK", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "03-Aug-2026 10:13:00 AM", "offStopDescription": "NEWARK BROAD ST", "offStopTime": "03-Aug-2026 10:36:00 AM", "block": "1078" },
+          { "route": "MOBO", "routeType": "C", "sign": "HOBOKEN", "onStopDescription": "NEWARK BROAD STREET LOWER LEVEL", "onStopTime": "03-Aug-2026 10:45:00 AM", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 11:09:00 AM", "block": "6226" }
+        ]
+      },
+      {
+        "duration": "39",
+        "legs": [
+          { "route": "MOBO", "routeType": "C", "sign": "HOBOKEN", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "03-Aug-2026 10:43:00 AM", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 11:22:00 AM", "block": 1082 }
+        ]
+      },
+      {
+        "duration": "40",
+        "legs": [
+          { "route": "BUS", "routeType": "B", "sign": "HOBOKEN", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "03-Aug-2026 10:00:00 AM", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 10:40:00 AM", "block": "28" }
+        ]
+      },
+      {
+        "duration": "39",
+        "legs": [
+          { "route": "MOBO", "routeType": "C", "sign": "HOBOKEN", "onStopDescription": "WATCHUNG AVENUE", "onStopTime": "", "offStopDescription": "HOBOKEN", "offStopTime": "03-Aug-2026 11:52:00 AM", "block": "1086" }
+        ]
+      }
+    ]
+  }
+}

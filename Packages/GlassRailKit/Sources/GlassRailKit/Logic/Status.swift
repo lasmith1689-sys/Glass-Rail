@@ -1,0 +1,219 @@
+import Foundation
+
+/// Port of lib/status.ts: the operational state of each trip, derived purely.
+public enum FeedMode: String, Sendable, Hashable {
+    case live
+    case stale
+    case sample
+}
+
+public struct TrackChange: Codable, Equatable, Hashable, Sendable {
+    public var from: String
+    public var to: String
+    public var detectedAt: Date
+
+    public init(from: String, to: String, detectedAt: Date) {
+        self.from = from
+        self.to = to
+        self.detectedAt = detectedAt
+    }
+}
+
+public struct TripView: Equatable, Sendable {
+    public var trip: Trip
+    public var key: String?
+    public var delayed: Bool
+    public var delayMinutes: Int?
+    /// Scheduled departure shifted by the parsed delay; equals the schedule when no delay info.
+    public var expectedDeparture: Date
+    public var expectedArrival: Date?
+    public var cancelled: Bool
+    public var trackChange: TrackChange?
+    /// True pickup/drop-off times, attached by `withTiming` when stop data exists.
+    public var timing: TripTiming?
+
+    public init(
+        trip: Trip,
+        key: String?,
+        delayed: Bool,
+        delayMinutes: Int?,
+        expectedDeparture: Date,
+        expectedArrival: Date?,
+        cancelled: Bool,
+        trackChange: TrackChange?,
+        timing: TripTiming? = nil
+    ) {
+        self.trip = trip
+        self.key = key
+        self.delayed = delayed
+        self.delayMinutes = delayMinutes
+        self.expectedDeparture = expectedDeparture
+        self.expectedArrival = expectedArrival
+        self.cancelled = cancelled
+        self.trackChange = trackChange
+        self.timing = timing
+    }
+}
+
+public enum Status {
+    /// Live payload older than this is downgraded to "stale" (a few missed 60 s refreshes).
+    public static let staleAfter: TimeInterval = 210
+    /// How long a track-change alert stays visible before the new track becomes the quiet normal.
+    public static let trackChangeTTL: TimeInterval = 10 * 60
+    /// A train stays listed this long past its (expected) departure: it may still be boarding.
+    public static let departureGrace: TimeInterval = 60
+    /// A pinned ride stays featured this long past its expected arrival.
+    public static let rideArrivalGrace: TimeInterval = 3 * 60
+    /// Without an arrival time, a pinned ride is retained at most this long after departure.
+    public static let rideNoArrivalTTL: TimeInterval = 90 * 60
+
+    /// `generatedAt` is nil when the payload's timestamp could not be read,
+    /// which is never presented as live.
+    public static func deriveFeedMode(
+        kind: SourceKind,
+        generatedAt: Date?,
+        now: Date,
+        consecutiveFailures: Int = 0
+    ) -> FeedMode {
+        if kind != .live { return .sample }
+        if consecutiveFailures >= 2 { return .stale }
+        guard let generatedAt else { return .stale }
+        return now.timeIntervalSince(generatedAt) > staleAfter ? .stale : .live
+    }
+
+    /// NJT boards phrase delays as e.g. "Delayed 10 min" / "Running 15 min late".
+    /// Minutes are only trusted when the note actually talks about a delay and the
+    /// number is plausible; anything else yields nil (delayed, magnitude unknown).
+    public static func parseDelayMinutes(_ note: String?) -> Int? {
+        guard let note, !note.isEmpty, RX.test("delay|late", note, ignoreCase: true) else { return nil }
+        guard let match = RX.match("(\\d+)\\s*min", note, ignoreCase: true), let minutes = Int(match[1]) else {
+            return nil
+        }
+        if minutes < 1 || minutes > 240 { return nil }
+        return minutes
+    }
+
+    /// Shift a time by whole minutes; passes through when there is nothing to shift.
+    public static func shift(_ date: Date?, minutes: Int?) -> Date? {
+        guard let date, let minutes else { return date }
+        return date.adding(minutes: minutes)
+    }
+
+    /// Stable identity for comparing refreshes: direction pair + NJT train number.
+    public static func tripKey(_ trip: Trip) -> String? {
+        guard let trainId = trip.trainId, !trainId.isEmpty else { return nil }
+        return "\(trip.fromId)|\(trip.toId)|\(trainId)"
+    }
+
+    /// Derive the display state for one trip. `alerts` is false for sample
+    /// payloads: fixture data must never surface delays, cancellations, or
+    /// track changes as though they were real.
+    public static func deriveTripView(_ trip: Trip, changes: [String: TrackChange], alerts: Bool) -> TripView {
+        let key = tripKey(trip)
+        let delayed = alerts && trip.status == .delayed
+        let delayMinutes = delayed ? parseDelayMinutes(trip.statusNote) : nil
+        return TripView(
+            trip: trip,
+            key: key,
+            delayed: delayed,
+            delayMinutes: delayMinutes,
+            expectedDeparture: shift(trip.departure, minutes: delayMinutes) ?? trip.departure,
+            expectedArrival: shift(trip.arrival, minutes: delayMinutes),
+            cancelled: alerts && trip.status == .cancelled,
+            trackChange: (alerts && key != nil) ? changes[key!] : nil
+        )
+    }
+
+    /// Fold a freshly fetched (live) trip list into the per-train track history.
+    /// A change is reported only when the same train's track differs from the
+    /// last track we successfully displayed; the first sighting never counts.
+    /// A temporarily missing track keeps the previous value.
+    public static func updateTrackHistory(
+        _ history: [String: String],
+        trips: [Trip],
+        now: Date
+    ) -> (history: [String: String], changes: [String: TrackChange]) {
+        var next = history
+        var changes: [String: TrackChange] = [:]
+        for trip in trips {
+            guard let key = tripKey(trip), let track = trip.track, !track.isEmpty else { continue }
+            if let previous = next[key], previous != track {
+                changes[key] = TrackChange(from: previous, to: track, detectedAt: now)
+            }
+            next[key] = track
+        }
+        return (next, changes)
+    }
+
+    public static func pruneTrackChanges(_ changes: [String: TrackChange], now: Date) -> [String: TrackChange] {
+        changes.filter { now.timeIntervalSince($0.value.detectedAt) <= trackChangeTTL }
+    }
+
+    /// Upcoming trips for one direction, ordered by when they actually leave.
+    /// Filtering and ordering use the expected (delay-shifted) departure so a
+    /// delayed train neither vanishes while still catchable nor blocks an
+    /// on-time train that will leave before it.
+    public static func selectTripViews(
+        _ trips: [Trip],
+        fromId: String,
+        toId: String,
+        now: Date,
+        alerts: Bool,
+        changes: [String: TrackChange]
+    ) -> [TripView] {
+        let cutoff = now.addingTimeInterval(-departureGrace)
+        return trips
+            .filter { $0.fromId == fromId && $0.toId == toId }
+            .map { deriveTripView($0, changes: changes, alerts: alerts) }
+            .filter { $0.expectedDeparture >= cutoff }
+            .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
+    }
+
+    /// The trip to show for a pinned ride. NJ Transit's planner only returns
+    /// future departures, so the train the rider is sitting on disappears
+    /// from the payload the moment it leaves. Prefer fresh feed data, fall back
+    /// to the last trip we saw.
+    public static func retainRideTrip(cached: Trip?, trips: [Trip], key: String) -> Trip? {
+        if let fresh = trips.first(where: { tripKey($0) == key }) { return fresh }
+        if let cached, tripKey(cached) == key { return cached }
+        return nil
+    }
+
+    /// A pinned trip rendered as the hero. Unlike `selectTripViews`, a departed
+    /// trip is kept until shortly after its expected arrival (bounded even when
+    /// NJT gives no arrival), so the board follows the whole journey.
+    public static func rideView(_ trip: Trip, now: Date, alerts: Bool, changes: [String: TrackChange]) -> TripView? {
+        let view = deriveTripView(trip, changes: changes, alerts: alerts)
+        let keepUntil: Date
+        if let arrival = view.expectedArrival {
+            keepUntil = arrival.addingTimeInterval(rideArrivalGrace)
+        } else {
+            keepUntil = view.expectedDeparture.addingTimeInterval(rideNoArrivalTTL)
+        }
+        return now > keepUntil ? nil : view
+    }
+
+    /// The featured train as last seen, for departure announcements.
+    public struct HeroSnapshot: Equatable, Sendable {
+        public var key: String
+        public var label: String
+        public var effectiveDeparture: Date
+
+        public init(key: String, label: String, effectiveDeparture: Date) {
+            self.key = key
+            self.label = label
+            self.effectiveDeparture = effectiveDeparture
+        }
+    }
+
+    /// Decide whether the previous featured train should be announced as
+    /// departed. Only fires when its expected departure has actually passed AND
+    /// it has left the upcoming list, so a flaky feed never produces a false
+    /// "departed".
+    public static func detectDeparture(_ previous: HeroSnapshot?, currentKeys: [String], now: Date) -> String? {
+        guard let previous else { return nil }
+        if currentKeys.contains(previous.key) { return nil }
+        if previous.effectiveDeparture > now { return nil }
+        return previous.label
+    }
+}

@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode (the project is generated from project.yml by XcodeGen)
+GlassRail.xcodeproj/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/*/Package.resolved
+
+# CI outputs
+screenshots/
+njt-probe-out/
+*.log

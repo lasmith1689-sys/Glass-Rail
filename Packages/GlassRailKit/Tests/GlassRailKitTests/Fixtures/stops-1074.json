@@ -1,0 +1,12 @@
+{
+  "data": {
+    "getTrainStopList": [
+      { "name": "Montclair State U", "time": "9:42 AM", "status": "OnTime", "departed": true, "dropOff": "" },
+      { "name": "Upper Montclair", "time": "9:55 AM", "status": "Late", "departed": false, "dropOff": null },
+      { "name": " Watchung  Avenue ", "time": "03-Aug-2026 09:57:00 AM", "status": "Late", "departed": false, "dropOff": "" },
+      { "name": "Bay Street", "time": "garbage", "status": "", "departed": "true", "dropOff": "" },
+      { "name": "", "time": "10:05 AM", "status": "OnTime", "departed": false, "dropOff": "" },
+      { "name": "Hoboken", "time": "10:32 AM", "status": "OnTime", "departed": false, "dropOff": "Discharge Only" }
+    ]
+  }
+}
