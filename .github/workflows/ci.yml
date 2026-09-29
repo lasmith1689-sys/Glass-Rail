@@ -48,7 +48,7 @@ jobs:
   app:
     name: App + widgets (Simulator build and smoke test)
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 55
     permissions:
       contents: write # only to force-push screenshots to the ci-screenshots branch
     steps:
@@ -89,13 +89,15 @@ jobs:
           plutil -p "$app/Info.plist" | grep -E "CFBundleIdentifier|CFBundleDisplayName|GlassRailAppGroup|UILaunchScreen|ITSAppUsesNonExemptEncryption"
           plutil -p "$app/PlugIns/GlassRailWidgets.appex/Info.plist" | grep -E "CFBundleIdentifier|NSExtensionPointIdentifier|GlassRailAppGroup"
 
-      - name: Smoke test in the Simulator
-        timeout-minutes: 20
-        run: .github/scripts/smoke-test.sh "${{ steps.sim.outputs.udid }}" DerivedData/Build/Products/Debug-iphonesimulator/GlassRail.app screenshots
+      - name: Smoke test in the Simulator (every screen must show its expected text)
+        timeout-minutes: 28
+        run: .github/scripts/smoke-test.sh "${{ steps.sim.outputs.udid }}" DerivedData/Build/Products/Debug-iphonesimulator/GlassRail.app screenshots ocr.txt
 
       - name: Read screenshots (OCR)
         if: always()
         run: |
+          # The smoke test already read each screen; only redo it if it stopped early.
+          [ -s ocr.txt ] && { cat ocr.txt; exit 0; }
           ls screenshots/*.png >/dev/null 2>&1 || exit 0
           swift .github/scripts/ocr.swift screenshots/*.png | tee ocr.txt
 
