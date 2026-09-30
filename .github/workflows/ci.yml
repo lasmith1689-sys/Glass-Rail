@@ -126,8 +126,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Simulator screenshots for ${GITHUB_SHA::7}"
-          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-screenshots
-          echo "::notice title=Screenshots::Pushed $(ls *.jpg | wc -l | tr -d ' ') screenshots of ${GITHUB_SHA::7} to the ci-screenshots branch."
+          # A convenience copy (the artifact below is the record), so a GitHub hiccup here must not
+          # fail the build: retry a few times, then warn.
+          for attempt in 1 2 3; do
+            if git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-screenshots; then
+              echo "::notice title=Screenshots::Pushed $(ls *.jpg | wc -l | tr -d ' ') screenshots of ${GITHUB_SHA::7} to the ci-screenshots branch."
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          echo "::warning title=Screenshots::Could not push the screenshots to the ci-screenshots branch (they are still in the run's artifact)."
 
       - name: Upload screenshots
         if: always()
@@ -180,8 +188,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "NJ Transit replies for ${GITHUB_SHA::7}"
-          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-njt-probe
-          echo "::notice title=Raw replies::Pushed $(find . -name '*.json' | wc -l | tr -d ' ') replies of ${GITHUB_SHA::7} to the ci-njt-probe branch."
+          for attempt in 1 2 3; do
+            if git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-njt-probe; then
+              echo "::notice title=Raw replies::Pushed $(find . -name '*.json' | wc -l | tr -d ' ') replies of ${GITHUB_SHA::7} to the ci-njt-probe branch."
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          echo "::warning title=Raw replies::Could not push the replies to the ci-njt-probe branch (they are still in the run's artifact)."
 
       - name: Upload raw replies
         if: always()
