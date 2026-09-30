@@ -31,7 +31,7 @@ The same key that uploads Ai Sky works here. Never paste the key into a chat, an
 Either:
 
 - On GitHub, open **Actions** ▸ **TestFlight** ▸ **Run workflow** (branch `main`), or
-- Push a commit to `main` whose message contains `[ship]`.
+- Push a commit to `main` whose message starts with `[ship]` (for example `[ship] Faster widget`). Only the start counts, so a message that merely mentions it doesn't upload.
 
 Nothing else uploads. Ordinary pushes run CI only, which builds the App Store version as a check and
 ends with "Nothing was uploaded".
