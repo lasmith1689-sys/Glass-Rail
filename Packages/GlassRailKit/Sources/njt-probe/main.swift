@@ -51,8 +51,8 @@ func save(_ name: String, _ data: Data) {
 }
 
 if mode == "no-service" {
-    await probeNoService()
-    exit(0)
+    let ok = await probeNoService()
+    exit(ok ? 0 : 1)
 }
 
 let recorder = Recorder()

@@ -40,6 +40,39 @@ public enum NJTParse {
         return text.isEmpty ? nil : text
     }
 
+    // MARK: Planner replies
+
+    /// What NJ Transit's trip planner says when a window has no trains.
+    public static let noTripsMessage = "unable to find trips"
+
+    /// True when a trip planner reply means "there are no trips", which NJ
+    /// Transit sends as a GraphQL error rather than an empty list. Captured
+    /// from the live feed for Watchung Avenue on a Saturday (no weekend
+    /// service), HTTP 200:
+    ///
+    ///     {"errors":[{"message":"We're sorry. We were unable to find trips
+    ///      between your origin and destination.","path":["getTripPlannerSchedule"],
+    ///      "extensions":{"code":"INTERNAL_SERVER_ERROR",...}}],
+    ///      "data":{"getTripPlannerSchedule":null}}
+    ///
+    /// Only that reply counts: every error must say it (and, where it names a
+    /// field, name the planner's), and no itineraries may have come back. Any
+    /// other GraphQL error, like HTTP, transport and parse errors, is still a
+    /// failed lookup. The caller checks the status first.
+    public static func isNoTripsReply(_ payload: JSON) -> Bool {
+        guard let errors = payload["errors"]?.arrayValue, !errors.isEmpty else { return false }
+        if let schedule = payload["data"]?["getTripPlannerSchedule"], !schedule.isNull {
+            return false
+        }
+        return errors.allSatisfy { error in
+            guard error["message"].jsString.range(of: noTripsMessage, options: .caseInsensitive) != nil else {
+                return false
+            }
+            guard let path = error["path"]?.arrayValue, !path.isEmpty else { return true }
+            return path.first.jsString == "getTripPlannerSchedule"
+        }
+    }
+
     // MARK: Status
 
     /// Structured status from a departure board's status and inline message.

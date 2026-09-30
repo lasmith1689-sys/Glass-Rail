@@ -91,12 +91,21 @@ direction counts as a failed refresh too (all of its lookups, or the first one, 
 trains), so an outage never shows up as "No trains" under a `LIVE` badge; that message only appears
 when NJ Transit answered with no trains.
 
+NJ Transit's planner does not answer "no trains" with an empty list. Asked about Watchung Avenue on a
+Saturday, it replies HTTP 200 with a GraphQL error, "We're sorry. We were unable to find trips
+between your origin and destination.", and a null schedule (the same reply for all four
+directions). The app reads exactly that reply as "no trains", so the board says "No trains from
+Watchung Ave" and lists the next trains from Bay Street. Any other GraphQL error, that text on an
+HTTP error, a non-JSON reply or a missing schedule is still a failed lookup. At 3 AM on a weekday
+there is no gap to handle: the planner returns the first trains of the morning (4:48 AM toward the
+city). These replies were captured from the live feed and are kept as test fixtures.
+
 ## Project layout
 
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 227 tests: v4's 138 vitest cases, one XCTest each, plus 89 more for the NJ Transit parser and client (including replies captured from the live feed, and planner outages), the board engine, the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 235 tests: v4's 138 vitest cases, one XCTest each, plus 97 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, and 3 AM), planner outages, the board engine, the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -118,7 +127,10 @@ GitHub Actions is the only build machine. Every push runs CI (`.github/workflows
    time and that coming back starts a live one again.
 3. An App Store archive dry run that checks both bundles carry the App Group, then stops with
    "Nothing was uploaded".
-4. An informational live probe of NJ Transit's feed from the runner.
+4. An informational live probe of NJ Transit's feed from the runner. It also asks the planner about
+   next Saturday at 10 AM and a weekday at 3 AM, publishes every raw reply to the `ci-njt-probe`
+   branch, and fails its step unless Saturday reads as "No trains" with Bay Street instead and 3 AM
+   lists the first morning trains. The job never blocks the rest of CI.
 
 Shipping to TestFlight is separate and deliberate: see [TESTFLIGHT.md](TESTFLIGHT.md).
 

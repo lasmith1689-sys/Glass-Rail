@@ -50,6 +50,13 @@ public struct NJTClient: Sendable {
 
     /// POST a query and return its `data` object, throwing NJT's own error text.
     public func post(query: String, variables: [String: GQLValue]) async throws -> JSON {
+        try Self.data(of: try await reply(query: query, variables: variables))
+    }
+
+    /// POST a query and return the whole reply once it is known to be JSON
+    /// with a 2xx status (checked in v4's order), before looking at `errors`
+    /// or `data`.
+    func reply(query: String, variables: [String: GQLValue]) async throws -> JSON {
         let object: [String: Any] = [
             "query": query,
             "variables": variables.mapValues { $0.jsonObject },
@@ -67,6 +74,11 @@ public struct NJTClient: Sendable {
         guard (200..<300).contains(response.status) else {
             throw NJTError.http(response.status)
         }
+        return payload
+    }
+
+    /// A reply's `data` object, throwing NJT's own error text.
+    static func data(of payload: JSON) throws -> JSON {
         if let errors = payload["errors"]?.arrayValue, !errors.isEmpty {
             let message = errors
                 .map { $0["message"].jsString }
@@ -85,9 +97,13 @@ public struct NJTClient: Sendable {
         return data["getTrainDepartureScreens"]?["items"]?.arrayValue ?? []
     }
 
+    /// Itineraries from `origin` to `destination` leaving from `moment` on.
+    /// Empty when NJ Transit says there are none: it reports that as a
+    /// GraphQL error, not an empty list (see `NJTParse.isNoTripsReply`), and
+    /// that one reply is an answer, not a failure. Every other error throws.
     public func fetchTripPlanner(origin: String, destination: String, at moment: Date) async throws -> [JSON] {
         let when = NJTParse.plannerMoment(moment)
-        let data = try await post(query: NJTQueries.tripPlanner, variables: [
+        let payload = try await reply(query: NJTQueries.tripPlanner, variables: [
             "origin": .string(origin),
             "destination": .string(destination),
             "timeOption": .string("D"),
@@ -98,6 +114,8 @@ public struct NJTClient: Sendable {
             "maxWalkingDistance": .string("1.00"),
             "minimizeTime": .string("T"),
         ])
+        if NJTParse.isNoTripsReply(payload) { return [] }
+        let data = try Self.data(of: payload)
         return data["getTripPlannerSchedule"]?.arrayValue ?? []
     }
 
