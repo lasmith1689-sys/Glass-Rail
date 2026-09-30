@@ -35,11 +35,11 @@ func label(_ date: Date) -> String {
 func legsSummary(_ itinerary: JSON) -> String {
     let legs = itinerary["legs"]?.arrayValue ?? []
     let parts = legs.map { leg -> String in
-        let type = leg["routeType"].jsString
-        let block = leg["block"].jsString
-        return "\(type.isEmpty ? "?" : type) \(block.isEmpty ? "-" : block) \(leg["onStopDescription"].jsString) \(leg["onStopTime"].jsString) > \(leg["offStopDescription"].jsString) \(leg["offStopTime"].jsString)"
+        let type = NJTParse.clean(leg["routeType"])
+        let block = NJTParse.clean(leg["block"])
+        return "\(type.isEmpty ? "?" : type) \(block.isEmpty ? "-" : block) \(NJTParse.clean(leg["onStopDescription"])) \(NJTParse.clean(leg["onStopTime"])) > \(NJTParse.clean(leg["offStopDescription"])) \(NJTParse.clean(leg["offStopTime"]))"
     }
-    return "[\(itinerary["duration"].jsString)] " + parts.joined(separator: " | ")
+    return "[\(NJTParse.clean(itinerary["duration"]))] " + parts.joined(separator: " | ")
 }
 
 func probeNoService() async {
