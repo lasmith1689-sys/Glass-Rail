@@ -35,10 +35,18 @@ is, and when to say a train has departed.
 - **No service**: when your station has no trains (the Montclair Branch runs none north of Bay Street
   on weekends), it says so and lists the next trains from Bay Street.
 - Refreshes every 60 seconds, on returning to the app, with pull to refresh, and with the Refresh
-  button. Five looks from v4 (Glass, Midnight, Aurora, Sunset, Liquid) in Settings. Glass (the
-  default) and Liquid are see-through: the cards are real iOS 26 Liquid Glass over a backdrop of
-  slowly drifting light and two faint rail lines, which you see blurred and bent through each card.
-  The drift pauses off screen and with Reduce Motion; with Reduce Transparency the cards go solid.
+  button. Nine looks in Settings, all on the same board layout:
+  - From v4: Glass (the default), Midnight, Aurora, Sunset, Liquid.
+  - From the September 2026 design samples: Platform (night platform, warm lights, a straight track
+    running to a headlight), Ember (amber glow on graphite), Navy (deep blue with gold light) and
+    Station (solid charcoal cards, amber accents, and Oswald, a condensed departure-board typeface).
+  - Glass, Liquid, Platform, Ember and Navy are see-through: the cards are real iOS 26 Liquid Glass
+    over a backdrop of slowly drifting light and faint rail lines, seen blurred and bent through
+    each card. The drift pauses off screen and with Reduce Motion; with Reduce Transparency the
+    cards go solid.
+  - Oswald (SIL Open Font License, `Shared/Fonts/Oswald-OFL.txt`) is bundled in the app and the
+    widget extension. The app logs at launch whether every face registered, and the smoke test
+    fails if one didn't.
 
 ## Widgets
 

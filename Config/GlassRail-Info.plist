@@ -28,5 +28,13 @@
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Oswald-Light.ttf</string>
+		<string>Oswald-Regular.ttf</string>
+		<string>Oswald-Medium.ttf</string>
+		<string>Oswald-SemiBold.ttf</string>
+		<string>Oswald-Bold.ttf</string>
+	</array>
 </dict>
 </plist>

@@ -5,6 +5,10 @@ struct GlassRailApp: App {
     @State private var model = BoardModel()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        ThemeFonts.check()
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {

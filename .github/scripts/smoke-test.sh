@@ -190,6 +190,20 @@ lifecycle_check() {
 # with faint glows); the default Glass backdrop there is deep blue under bright glows. The same
 # scenario in the default theme (02-delayed) is measured alongside, so the check proves the theme
 # argument changed the look rather than just that the screen is dark.
+# The Station theme draws its text in bundled Oswald faces. A wrong file or PostScript name falls
+# back to the system font without an error, so the app logs what registered at launch.
+font_check() {
+  local log
+  log=$(run_limited 120 xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+    --predicate 'subsystem == "com.lasmith1689.GlassRail" AND category == "Fonts"' 2>/dev/null | grep "Theme fonts" | tail -1)
+  if [[ "$log" == *"Theme fonts: all"* ]]; then
+    echo "::notice title=Fonts::${log#*Theme fonts}"
+  else
+    echo "::error title=Fonts::The app did not report every theme face loaded. Log: ${log:-(nothing)}"
+    failures=$((failures + 1))
+  fi
+}
+
 theme_check() {
   local midnight glass mr mg mb gr gg gb
   midnight=$(run_limited 30 "$PIXELS" "$OUT/12-theme-midnight.png" 0 0.2 0.025 0.8)
@@ -232,6 +246,14 @@ capture 10-settings 5 'Choose a look' -GlassRailSheet settings
 capture 11-widgets 6 'LATER THIS WAY && LIVE ACTIVITY && DROP-OFF' -GlassRailDemo delayed -GlassRailWidgetGallery YES
 capture 12-theme-midnight 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme midnight
 theme_check
+# The four looks from the September design samples, and the widget gallery in the one with its
+# own typeface (Oswald), which the widget extension bundles too.
+capture 12b-theme-platform 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme platform
+capture 12c-theme-ember 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme ember
+capture 12d-theme-navy 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme navy
+capture 12e-theme-station 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme station
+capture 12f-station-widgets 6 'LATER THIS WAY' -GlassRailDemo delayed -GlassRailTheme station -GlassRailWidgetGallery YES
+font_check
 # The Live Activity's Lock Screen layout mid-ride: the pickup is in the past, the drop-off ahead,
 # both drawn by relative-time text the system keeps current.
 capture 13-live-activity 8 'LIVE ACTIVITY && DROP-OFF && ago && in [0-9]+ min' -GlassRailDemo riding -GlassRailWidgetGallery YES

@@ -55,10 +55,41 @@ struct Theme: Identifiable, Equatable {
     var solidPanel: Color = .clear
     /// Soft lights that drift slowly behind the glass (app only).
     var orbs: [Orb] = []
+    /// How the faint rails behind the glass are drawn.
+    var rails: RailStyle = .curves
+    /// Opaque themes normally lay v4's frosted card over the whole page; a theme
+    /// with solid cards of its own (Station) goes without it.
+    var pageVeil = true
+    /// A bundled font family for all of this theme's text (nil: the system font).
+    var fontFamily: FontFamily?
+
+    enum RailStyle: Equatable {
+        /// Two tracks sweeping across the screen.
+        case curves
+        /// One straight track running away to a vanishing point, headlight at the end.
+        case perspective
+    }
+
+    enum FontFamily: String, Equatable {
+        case oswald = "Oswald"
+
+        /// The PostScript name of the bundled face closest to a weight.
+        func faceName(_ weight: Font.Weight) -> String {
+            switch weight {
+            case .ultraLight, .thin, .light: return "Oswald-Light"
+            case .regular: return "Oswald-Regular"
+            case .medium: return "Oswald-Medium"
+            case .semibold: return "Oswald-SemiBold"
+            default: return "Oswald-Bold"
+            }
+        }
+
+        static let allFaces = ["Oswald-Light", "Oswald-Regular", "Oswald-Medium", "Oswald-SemiBold", "Oswald-Bold"]
+    }
 
     static func == (lhs: Theme, rhs: Theme) -> Bool { lhs.id == rhs.id }
 
-    static let all: [Theme] = [.glass, .midnight, .aurora, .sunset, .liquid]
+    static let all: [Theme] = [.glass, .midnight, .aurora, .sunset, .liquid, .platform, .ember, .navy, .station]
 
     static func named(_ id: String?) -> Theme {
         all.first { $0.id == id } ?? .glass
@@ -243,6 +274,149 @@ struct Theme: Identifiable, Equatable {
             Orb(center: UnitPoint(x: 0.24, y: 0.88), color: Color(r: 185, g: 150, b: 255, a: 0.50), size: 0.80, drift: CGSize(width: 36, height: -30)),
         ]
     )
+
+    // MARK: The four looks from the September design samples: same board, new light.
+
+    static let platform = Theme(
+        id: "platform",
+        label: "Platform",
+        tagline: "Night platform, warm lights",
+        ink: Color(hex: 0xF5F7FB),
+        scheme: .dark,
+        base: [
+            .init(color: Color(hex: 0x0B1636), location: 0), .init(color: Color(hex: 0x16295F), location: 0.46),
+            .init(color: Color(hex: 0x22336B), location: 0.64), .init(color: Color(hex: 0x0C1128), location: 1),
+        ],
+        baseStart: .top,
+        baseEnd: .bottom,
+        glows: [
+            Glow(center: UnitPoint(x: 0.04, y: 0.62), color: Color(r: 255, g: 186, b: 110, a: 0.50), reach: 0.36),
+            Glow(center: UnitPoint(x: 0.92, y: 0.58), color: Color(r: 255, g: 210, b: 150, a: 0.42), reach: 0.34),
+            Glow(center: UnitPoint(x: 0.50, y: 0.36), color: Color(r: 170, g: 205, b: 255, a: 0.45), reach: 0.22),
+            Glow(center: UnitPoint(x: 0.16, y: 0.18), color: Color(r: 120, g: 150, b: 255, a: 0.30), reach: 0.22),
+        ],
+        cardTop: Color(r: 255, g: 255, b: 255, a: 0.24),
+        cardBottom: Color(r: 255, g: 255, b: 255, a: 0.08),
+        insetTop: Color(r: 255, g: 255, b: 255, a: 0.11),
+        insetBottom: Color(r: 255, g: 255, b: 255, a: 0.04),
+        insetBorder: Color(r: 255, g: 255, b: 255, a: 0.18),
+        pillTop: Color(r: 255, g: 255, b: 255, a: 0.14),
+        pillBottom: Color(r: 255, g: 255, b: 255, a: 0.05),
+        pillBorder: Color(r: 255, g: 255, b: 255, a: 0.22),
+        divider: Color(r: 255, g: 255, b: 255, a: 0.12),
+        shimmer: [Color(r: 143, g: 180, b: 255, a: 0.80), Color(r: 255, g: 255, b: 255, a: 0.95), Color(r: 255, g: 196, b: 120, a: 0.80)],
+        routeGlow: Color(r: 255, g: 255, b: 255, a: 0.55),
+        lateText: Color(hex: 0xFBBF24),
+        seeThrough: true,
+        glassTint: Color(r: 90, g: 120, b: 200, a: 0.12),
+        glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.09), Color(r: 255, g: 255, b: 255, a: 0.02)],
+        solidPanel: Color(hex: 0x1A2548),
+        orbs: [
+            Orb(center: UnitPoint(x: 0.08, y: 0.56), color: Color(r: 255, g: 186, b: 110, a: 0.42), size: 0.75, drift: CGSize(width: 30, height: -24)),
+            Orb(center: UnitPoint(x: 0.90, y: 0.52), color: Color(r: 255, g: 210, b: 150, a: 0.36), size: 0.70, drift: CGSize(width: -28, height: 22)),
+            Orb(center: UnitPoint(x: 0.50, y: 0.34), color: Color(r: 170, g: 205, b: 255, a: 0.34), size: 0.45, drift: CGSize(width: 0, height: 18)),
+        ],
+        rails: .perspective
+    )
+
+    static let ember = Theme(
+        id: "ember",
+        label: "Ember",
+        tagline: "Amber glow on graphite",
+        ink: Color(hex: 0xF5F2EC),
+        scheme: .dark,
+        base: [.init(color: Color(hex: 0x16151C), location: 0), .init(color: Color(hex: 0x0F1018), location: 0.5), .init(color: Color(hex: 0x0A0C14), location: 1)],
+        baseStart: deg165.0,
+        baseEnd: deg165.1,
+        glows: [
+            Glow(center: UnitPoint(x: 0.50, y: 0.30), color: Color(r: 255, g: 170, b: 60, a: 0.40), reach: 0.46),
+            Glow(center: UnitPoint(x: 0.50, y: 0.34), color: Color(r: 120, g: 84, b: 40, a: 0.45), reach: 0.62),
+            Glow(center: UnitPoint(x: 0.08, y: 0.88), color: Color(r: 90, g: 130, b: 255, a: 0.25), reach: 0.36),
+        ],
+        cardTop: Color(r: 255, g: 255, b: 255, a: 0.22),
+        cardBottom: Color(r: 255, g: 255, b: 255, a: 0.07),
+        insetTop: Color(r: 255, g: 248, b: 240, a: 0.10),
+        insetBottom: Color(r: 255, g: 248, b: 240, a: 0.04),
+        insetBorder: Color(r: 255, g: 236, b: 210, a: 0.18),
+        pillTop: Color(r: 255, g: 248, b: 240, a: 0.13),
+        pillBottom: Color(r: 255, g: 248, b: 240, a: 0.05),
+        pillBorder: Color(r: 255, g: 236, b: 210, a: 0.22),
+        divider: Color(r: 255, g: 236, b: 210, a: 0.12),
+        shimmer: [Color(r: 255, g: 210, b: 122, a: 0.85), Color(r: 255, g: 255, b: 255, a: 0.95), Color(r: 255, g: 159, b: 46, a: 0.85)],
+        routeGlow: Color(r: 255, g: 200, b: 120, a: 0.60),
+        lateText: Color(hex: 0xFBBF24),
+        seeThrough: true,
+        glassTint: Color(r: 255, g: 190, b: 110, a: 0.08),
+        glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.08), Color(r: 255, g: 255, b: 255, a: 0.02)],
+        solidPanel: Color(hex: 0x221D1A),
+        orbs: [
+            Orb(center: UnitPoint(x: 0.50, y: 0.28), color: Color(r: 255, g: 170, b: 60, a: 0.34), size: 0.95, drift: CGSize(width: 22, height: 26)),
+            Orb(center: UnitPoint(x: 0.10, y: 0.86), color: Color(r: 90, g: 130, b: 255, a: 0.30), size: 0.80, drift: CGSize(width: 34, height: -28)),
+        ]
+    )
+
+    static let navy = Theme(
+        id: "navy",
+        label: "Navy",
+        tagline: "Deep blue, gold light",
+        ink: Color(hex: 0xF5F7FB),
+        scheme: .dark,
+        base: [.init(color: Color(hex: 0x0D1733), location: 0), .init(color: Color(hex: 0x0A1127), location: 0.5), .init(color: Color(hex: 0x070B18), location: 1)],
+        baseStart: deg165.0,
+        baseEnd: deg165.1,
+        glows: [
+            Glow(center: UnitPoint(x: 0.86, y: 0.18), color: Color(r: 126, g: 170, b: 255, a: 0.32), reach: 0.42),
+            Glow(center: UnitPoint(x: 0.06, y: 0.86), color: Color(r: 221, g: 178, b: 124, a: 0.28), reach: 0.42),
+        ],
+        cardTop: Color(r: 255, g: 255, b: 255, a: 0.22),
+        cardBottom: Color(r: 255, g: 255, b: 255, a: 0.07),
+        insetTop: Color(r: 255, g: 255, b: 255, a: 0.10),
+        insetBottom: Color(r: 255, g: 255, b: 255, a: 0.04),
+        insetBorder: Color(r: 255, g: 255, b: 255, a: 0.17),
+        pillTop: Color(r: 255, g: 255, b: 255, a: 0.13),
+        pillBottom: Color(r: 255, g: 255, b: 255, a: 0.05),
+        pillBorder: Color(r: 255, g: 255, b: 255, a: 0.21),
+        divider: Color(r: 255, g: 255, b: 255, a: 0.12),
+        shimmer: [Color(r: 158, g: 192, b: 255, a: 0.85), Color(r: 255, g: 255, b: 255, a: 0.95), Color(r: 221, g: 178, b: 124, a: 0.85)],
+        routeGlow: Color(r: 200, g: 220, b: 255, a: 0.55),
+        lateText: Color(hex: 0xFBBF24),
+        seeThrough: true,
+        glassTint: Color(r: 100, g: 130, b: 220, a: 0.10),
+        glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.08), Color(r: 255, g: 255, b: 255, a: 0.02)],
+        solidPanel: Color(hex: 0x141D3A),
+        orbs: [
+            Orb(center: UnitPoint(x: 0.84, y: 0.20), color: Color(r: 126, g: 170, b: 255, a: 0.34), size: 0.85, drift: CGSize(width: -30, height: 26)),
+            Orb(center: UnitPoint(x: 0.10, y: 0.84), color: Color(r: 221, g: 178, b: 124, a: 0.30), size: 0.85, drift: CGSize(width: 32, height: -30)),
+        ]
+    )
+
+    static let station = Theme(
+        id: "station",
+        label: "Station",
+        tagline: "Departure board type",
+        ink: Color(hex: 0xF3EFE3),
+        scheme: .dark,
+        base: [.init(color: Color(hex: 0x1C1A16), location: 0), .init(color: Color(hex: 0x121214), location: 0.45), .init(color: Color(hex: 0x0C0D10), location: 1)],
+        baseStart: .top,
+        baseEnd: .bottom,
+        glows: [
+            Glow(center: UnitPoint(x: 0.50, y: 0.0), color: Color(r: 255, g: 200, b: 120, a: 0.22), reach: 0.55),
+        ],
+        cardTop: Color(hex: 0x1B1C20),
+        cardBottom: Color(hex: 0x141518),
+        insetTop: Color(hex: 0x1D1E22, alpha: 0.97),
+        insetBottom: Color(hex: 0x141518, alpha: 0.97),
+        insetBorder: Color(r: 243, g: 239, b: 227, a: 0.12),
+        pillTop: Color(hex: 0x26272C),
+        pillBottom: Color(hex: 0x1C1D21),
+        pillBorder: Color(r: 243, g: 239, b: 227, a: 0.14),
+        divider: Color(r: 243, g: 239, b: 227, a: 0.10),
+        shimmer: [Color(r: 245, g: 165, b: 36, a: 0.85), Color(r: 247, g: 242, b: 228, a: 0.95), Color(r: 245, g: 165, b: 36, a: 0.85)],
+        routeGlow: Color(r: 245, g: 165, b: 36, a: 0.45),
+        lateText: Color(hex: 0xF5A524),
+        pageVeil: false,
+        fontFamily: .oswald
+    )
 }
 
 /// Fixed accents that sit on top of every theme (v4's @theme and badge colors).
@@ -305,7 +479,7 @@ struct ThemeBackdrop: View {
                 if lively && theme.seeThrough {
                     GlassScenery(theme: theme, size: size)
                 }
-                if showsCard && !theme.seeThrough {
+                if showsCard && !theme.seeThrough && theme.pageVeil {
                     LinearGradient(colors: [theme.cardTop, theme.cardBottom], startPoint: .top, endPoint: .bottom)
                 }
             }
@@ -333,7 +507,7 @@ struct GlassScenery: View {
 
     var body: some View {
         ZStack {
-            RailLines(color: theme.ink)
+            RailLines(color: theme.ink, style: theme.rails)
             ForEach(Array(theme.orbs.enumerated()), id: \.offset) { _, orb in
                 let diameter = orb.size * size.width
                 // A radial fade instead of a blur: soft edges, and moving it is
@@ -372,9 +546,14 @@ struct GlassScenery: View {
 /// cards read as glass.
 struct RailLines: View {
     let color: Color
+    var style: Theme.RailStyle = .curves
 
     var body: some View {
         Canvas { context, size in
+            if style == .perspective {
+                Self.drawPerspective(size: size, color: color, in: &context)
+                return
+            }
             let w = size.width
             let h = size.height
             let near = Path { path in
@@ -397,6 +576,40 @@ struct RailLines: View {
             Self.draw(far, gauge: 13, tie: 19, rail: 1, opacity: 0.6, color: color, in: &context)
         }
         .allowsHitTesting(false)
+    }
+
+    /// One straight track running away from the viewer: two rails converging on a
+    /// vanishing point about a third of the way down, ties that shrink and close
+    /// up toward it, and a small warm headlight where the rails meet.
+    private static func drawPerspective(size: CGSize, color: Color, in context: inout GraphicsContext) {
+        let w = size.width
+        let h = size.height
+        let vanish = CGPoint(x: 0.5 * w, y: 0.38 * h)
+        let leftFoot = CGPoint(x: 0.30 * w, y: 1.02 * h)
+        let rightFoot = CGPoint(x: 0.70 * w, y: 1.02 * h)
+        func along(_ foot: CGPoint, _ t: CGFloat) -> CGPoint {
+            CGPoint(x: foot.x + (vanish.x - foot.x) * t, y: foot.y + (vanish.y - foot.y) * t)
+        }
+        // Ties: evenly spaced on the ground, so they bunch up with distance.
+        for k in 0..<14 {
+            let t = 1 - 1 / (1 + CGFloat(k) * 0.42)
+            let a = along(leftFoot, t)
+            let b = along(rightFoot, t)
+            let overhang = (b.x - a.x) * 0.12
+            let thickness = max(1, 9 * (1 - t))
+            let tie = Path(CGRect(x: a.x - overhang, y: a.y - thickness / 2, width: b.x - a.x + overhang * 2, height: thickness))
+            context.fill(tie, with: .color(color.opacity(0.05)))
+        }
+        var rails = Path()
+        rails.move(to: leftFoot)
+        rails.addLine(to: vanish)
+        rails.move(to: rightFoot)
+        rails.addLine(to: vanish)
+        context.stroke(rails, with: .color(color.opacity(0.12)), lineWidth: 1.8)
+        let glow = Path(ellipseIn: CGRect(x: vanish.x - 14, y: vanish.y - 14, width: 28, height: 28))
+        context.fill(glow, with: .color(Color(r: 255, g: 236, b: 200, a: 0.18)))
+        let lamp = Path(ellipseIn: CGRect(x: vanish.x - 3.5, y: vanish.y - 3.5, width: 7, height: 7))
+        context.fill(lamp, with: .color(Color(r: 255, g: 244, b: 220, a: 0.9)))
     }
 
     private static func draw(_ center: Path, gauge: CGFloat, tie: CGFloat, rail: CGFloat, opacity: Double, color: Color, in context: inout GraphicsContext) {

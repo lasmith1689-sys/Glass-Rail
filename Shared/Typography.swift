@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 import UIKit
 
@@ -6,6 +7,7 @@ import UIKit
 /// time never overflows the card.
 struct ScaledFont: ViewModifier {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.theme) private var theme
     let size: CGFloat
     let weight: Font.Weight
     let style: Font.TextStyle
@@ -15,7 +17,11 @@ struct ScaledFont: ViewModifier {
     func body(content: Content) -> some View {
         let traits = UITraitCollection(preferredContentSizeCategory: Self.category(dynamicTypeSize))
         let scaled = UIFontMetrics(forTextStyle: Self.uiStyle(style)).scaledValue(for: size, compatibleWith: traits)
-        let font = Font.system(size: min(scaled, size * maxScale), weight: weight)
+        let points = min(scaled, size * maxScale)
+        // A theme with its own typeface (Station's Oswald) uses the bundled face for
+        // the weight; the size is already scaled for Dynamic Type above.
+        let font = theme.fontFamily.map { Font.custom($0.faceName(weight), fixedSize: points) }
+            ?? Font.system(size: points, weight: weight)
         return content.font(digits ? font.monospacedDigit() : font)
     }
 
@@ -78,5 +84,21 @@ struct KickerStyle: ViewModifier {
             .textCase(.uppercase)
             .foregroundStyle(theme.ink.opacity(0.68))
             .lineLimit(1)
+    }
+}
+
+/// Checks once at launch that every bundled theme face registered. A wrong file or
+/// PostScript name fails silently (the text falls back to the system font), so the
+/// result is logged for the smoke test to read.
+enum ThemeFonts {
+    static func check() {
+        let faces = Theme.FontFamily.allFaces
+        let missing = faces.filter { UIFont(name: $0, size: 12) == nil }
+        let log = Logger(subsystem: "com.lasmith1689.GlassRail", category: "Fonts")
+        if missing.isEmpty {
+            log.notice("Theme fonts: all \(faces.count, privacy: .public) faces loaded")
+        } else {
+            log.error("Theme fonts missing: \(missing.joined(separator: ", "), privacy: .public)")
+        }
     }
 }
