@@ -63,6 +63,13 @@ enum WidgetText {
     static func track(_ train: WidgetTrain) -> String {
         train.track.map { "Tk \($0)" } ?? "Tk --"
     }
+
+    /// What to say with no train to show: no service, none left, or (when NJ
+    /// Transit never answered for this direction) that nothing loaded.
+    static func noTrain(_ snapshot: WidgetSnapshot, noService: String, noneLeft: String, unanswered: String) -> String {
+        if snapshot.noService { return noService }
+        return snapshot.unanswered ? unanswered : noneLeft
+    }
 }
 
 /// Counts down to the (true) departure and stops at 0:00.
@@ -166,7 +173,7 @@ struct MediumTrainWidget: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Text("Updated \(Format.time(snapshot.generatedAt))")
+                Text(snapshot.updatedAt.map { "Updated \(Format.time($0))" } ?? "Not updated")
                     .font(.system(size: 9, weight: .medium).monospacedDigit())
                     .foregroundStyle(theme.ink.opacity(0.55))
             }
@@ -233,7 +240,7 @@ struct RectangularTrainWidget: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             } else {
-                Text(snapshot.noService ? "No trains right now" : "No more trains")
+                Text(WidgetText.noTrain(snapshot, noService: "No trains right now", noneLeft: "No more trains", unanswered: "Trains not loaded"))
                     .font(.system(size: 13, weight: .semibold))
                 if let alt = snapshot.alternateNext, let from = snapshot.alternateFrom {
                     Text("\(from.shortLabel) \(Format.time(alt.departure))")
@@ -257,7 +264,7 @@ struct InlineTrainWidget: View {
                 Image(systemName: "tram.fill")
             }
         } else {
-            Label(snapshot.noService ? "No trains now" : "No more trains", systemImage: "tram")
+            Label(WidgetText.noTrain(snapshot, noService: "No trains now", noneLeft: "No more trains", unanswered: "Not loaded"), systemImage: "tram")
         }
     }
 }
@@ -268,7 +275,7 @@ struct NoTrainWidgetText: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(snapshot.noService ? "No trains" : "No more trains")
+            Text(WidgetText.noTrain(snapshot, noService: "No trains", noneLeft: "No more trains", unanswered: "Not loaded"))
                 .font(.system(size: 17, weight: .semibold))
             if let alt = snapshot.alternateNext, let from = snapshot.alternateFrom {
                 Text("Nearest: \(from.shortLabel)")

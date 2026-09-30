@@ -49,7 +49,15 @@ public struct WidgetSnapshot: Equatable, Sendable {
     public var next: WidgetTrain?
     public var later: [WidgetTrain]
     public var isSample: Bool
-    public var generatedAt: Date
+    /// When this direction's trips were fetched, which is earlier than the
+    /// payload itself when they were carried over from a previous refresh;
+    /// nil when NJ Transit never answered for this direction.
+    public var updatedAt: Date?
+    /// NJ Transit never answered for this direction, so an empty list means
+    /// "unknown", not "no more trains".
+    public var unanswered: Bool { !isSample && updatedAt == nil }
+    /// The same LIVE / STALE / SAMPLE call the app makes for this direction.
+    public var feedMode: FeedMode
     public var noService: Bool
     /// Nearest station with service when the rider's own has none.
     public var alternateFrom: Station?
@@ -75,7 +83,8 @@ public enum WidgetPlanner {
             next: state.hero.map(WidgetTrain.init(view:)),
             later: state.later.prefix(3).map(WidgetTrain.init(view:)),
             isSample: payload.source.kind == .sample,
-            generatedAt: payload.generatedAt,
+            updatedAt: state.dataUpdatedAt,
+            feedMode: state.feedMode,
             noService: state.noService,
             alternateFrom: state.alternate?.from,
             alternateNext: state.alternate?.views.first.map(WidgetTrain.init(view:))
@@ -129,11 +138,21 @@ public enum WidgetPlanner {
 
     /// Whether the app's saved board is fresh enough to use without fetching.
     /// Only live data counts; a timestamp far in the future (a clock change)
-    /// doesn't make data fresh.
-    public static func canReuse(_ payload: Payload, now: Date) -> Bool {
+    /// doesn't make data fresh. With `pairKey`, it is that direction's own
+    /// data that must be fresh: a direction the app carried over from an
+    /// earlier refresh is as old as its trips, not as the payload.
+    public static func canReuse(_ payload: Payload, now: Date, pairKey: String? = nil) -> Bool {
         guard payload.source.kind == .live else { return false }
-        let age = now.timeIntervalSince(payload.generatedAt)
+        let updated: Date? = pairKey.map { payload.updatedAt(forPair: $0) } ?? payload.generatedAt
+        guard let updated else { return false }
+        let age = now.timeIntervalSince(updated)
         return age <= reuseSavedDataFor && age >= -reuseSavedDataFor
+    }
+
+    /// The direction a widget shows at `now` (by clock, no flips): the one its
+    /// own fetch must not fail for.
+    public static func currentPair(destinationId: String, now: Date) -> ODPair {
+        BoardEngine.shownPair(now: now, destinationId: destinationId, modeOverride: nil)
     }
 
     /// The two directions for the chosen terminal, which is all a widget needs.

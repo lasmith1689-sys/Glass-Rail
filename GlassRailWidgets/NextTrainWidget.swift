@@ -79,10 +79,12 @@ struct NextTrainProvider: TimelineProvider {
     }
 }
 
-/// Where the widget's data comes from: the app's saved data when it is at
-/// most 5 minutes old, otherwise NJ Transit directly (only the two directions
-/// for the chosen terminal, two planner lookups each), otherwise the last
-/// saved data, otherwise the bundled sample (labeled SAMPLE).
+/// Where the widget's data comes from: the app's saved data when the
+/// direction the widget shows is at most 5 minutes old there, otherwise NJ
+/// Transit directly (only the two directions for the chosen terminal, two
+/// planner lookups each), otherwise the last saved data, otherwise the
+/// bundled sample (labeled SAMPLE). Every direction keeps its own fetch time,
+/// so data carried over from an earlier refresh is dated as such.
 enum WidgetData {
     struct Loaded {
         var payload: Payload
@@ -100,21 +102,29 @@ enum WidgetData {
         let themeId = store.themeId
         let saved = store.snapshot
 
-        if let saved, WidgetPlanner.canReuse(saved.payload, now: now) {
+        let shown = WidgetPlanner.currentPair(destinationId: destinationId, now: now)
+        if let saved, WidgetPlanner.canReuse(saved.payload, now: now, pairKey: shown.key) {
             return Loaded(payload: saved.payload, runs: saved.runs, destinationId: destinationId, themeId: themeId)
         }
 
         let client = NJTClient()
         do {
+            // Only the direction shown now has to refresh; the other one (for
+            // entries past the 2 PM switch) keeps the saved trips, with their
+            // own time, if its lookup fails.
             let payload = try await client.fetchLivePayload(
                 pairs: WidgetPlanner.pairs(destinationId: destinationId),
-                plannerOffsets: WidgetPlanner.plannerOffsetsMinutes
+                plannerOffsets: WidgetPlanner.plannerOffsetsMinutes,
+                required: [shown.key],
+                previous: saved?.payload
             )
             let ids = WidgetPlanner.trainsNeedingStops(payload: payload, destinationId: destinationId, now: now)
             let runs = await client.fetchTrainRuns(ids)
             return Loaded(payload: payload, runs: runs, destinationId: destinationId, themeId: themeId)
         } catch {
-            if let saved, saved.payload.source.kind == .live, now.timeIntervalSince(saved.payload.generatedAt) < fallbackWindow {
+            if let saved, saved.payload.source.kind == .live,
+               let updated = saved.payload.updatedAt(forPair: shown.key),
+               now.timeIntervalSince(updated) < fallbackWindow {
                 return Loaded(payload: saved.payload, runs: saved.runs, destinationId: destinationId, themeId: themeId)
             }
             return Loaded(payload: SampleFixture.payload(now: now), runs: [:], destinationId: destinationId, themeId: themeId)

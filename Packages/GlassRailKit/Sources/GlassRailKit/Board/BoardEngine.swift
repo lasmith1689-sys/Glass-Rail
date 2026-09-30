@@ -61,7 +61,18 @@ public struct BoardState: Equatable, Sendable {
     public var to: Station
     /// `from|to`, the scope of a pin.
     public var dirKey: String
+    /// LIVE, STALE or SAMPLE for the direction on screen, judged by when its
+    /// own trips were fetched (see `dataUpdatedAt`).
     public var feedMode: FeedMode
+    /// When the trips this direction shows were fetched: the payload's time,
+    /// or earlier when this direction's lookup failed and its trips were
+    /// carried over from a previous refresh. nil when its lookup failed with
+    /// nothing to carry over (then the board is STALE and never claims "no
+    /// trains").
+    public var dataUpdatedAt: Date?
+    /// NJ Transit never answered for this direction (its lookup failed with
+    /// nothing to carry over): its trains are unknown, which is not none.
+    public var unanswered: Bool { alerts && dataUpdatedAt == nil }
     /// Operational alerts only ever come from a live payload.
     public var alerts: Bool
     /// Upcoming trips this way, with true pickup/drop-off times, by expected departure.
@@ -141,15 +152,27 @@ public enum BoardEngine {
         return Array(ids.prefix(stopListTrains))
     }
 
+    /// The direction the board shows at `now`: the one a refresh must not
+    /// fail for (see `NJTClient.fetchLivePayload(required:)`).
+    public static func shownPair(now: Date, destinationId: String, modeOverride: ModeOverride?) -> ODPair {
+        let commuteMode = Direction.resolveCommuteMode(now, override: modeOverride)
+        let (from, to) = Direction.endpoints(mode: commuteMode, destinationId: destinationId)
+        return ODPair(fromId: from.id, toId: to.id)
+    }
+
     public static func compute(_ input: BoardInputs) -> BoardState {
         let now = input.now
         let payload = input.payload
         let activeChanges = Status.pruneTrackChanges(input.trackChanges, now: now)
         let commuteMode = Direction.resolveCommuteMode(now, override: input.modeOverride)
         let (from, to) = Direction.endpoints(mode: commuteMode, destinationId: input.destinationId)
+        let dirKey = "\(from.id)|\(to.id)"
+        // A direction carried over from an earlier refresh ages on its own
+        // clock, so it turns STALE even while the other directions are fresh.
+        let dataUpdatedAt = payload.updatedAt(forPair: dirKey)
         let feedMode = Status.deriveFeedMode(
             kind: payload.source.kind,
-            generatedAt: payload.generatedAt,
+            generatedAt: dataUpdatedAt,
             now: now,
             consecutiveFailures: input.fetchFailures
         )
@@ -163,7 +186,6 @@ public enum BoardEngine {
         let direction = base
             .map { applyTiming($0, runs: runs, origin: from, dest: to) }
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
-        let dirKey = "\(from.id)|\(to.id)"
 
         // A tapped ("pinned") train takes over the hero card. While upcoming it
         // is picked from the normal list; once it departs it is retained as a
@@ -195,7 +217,8 @@ public enum BoardEngine {
 
         // When the rider's own station has no service at all, an empty board
         // is truthful but useless: find the nearest station that has trains.
-        let noService = direction.isEmpty && payload.source.kind == .live
+        // A direction NJ Transit never answered has unknown trains, not none.
+        let noService = direction.isEmpty && payload.source.kind == .live && dataUpdatedAt != nil
         var alternate: Alternate?
         if noService {
             for route in Alternates.alternateRoutes(
@@ -230,6 +253,7 @@ public enum BoardEngine {
             to: to,
             dirKey: dirKey,
             feedMode: feedMode,
+            dataUpdatedAt: dataUpdatedAt,
             alerts: alerts,
             direction: direction,
             trackedTrainIds: tracked,

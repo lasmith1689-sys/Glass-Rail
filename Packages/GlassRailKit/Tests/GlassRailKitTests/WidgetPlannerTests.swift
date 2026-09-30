@@ -97,6 +97,72 @@ final class WidgetPlannerTests: XCTestCase {
         XCTAssertFalse(WidgetPlanner.canReuse(sample, now: now))
     }
 
+    func testEachDirectionIsDatedByItsOwnFetch() {
+        // The ride home was carried over from a refresh 20 minutes ago.
+        let carried = Payload(generatedAt: now, source: payload.source, trips: payload.trips,
+                              carriedOver: ["hoboken|watchung": at(-20)])
+        let timeline = WidgetPlanner.timeline(payload: carried, runs: [:], destinationId: "hoboken", now: now)
+        XCTAssertEqual(timeline.first?.updatedAt, now)
+        XCTAssertEqual(timeline.first?.feedMode, .live)
+        let afterFlip = timeline.first { $0.date == at(60) }
+        XCTAssertEqual(afterFlip?.from.id, "hoboken")
+        XCTAssertEqual(afterFlip?.updatedAt, at(-20), "carried-over trips keep their own time")
+        XCTAssertEqual(afterFlip?.feedMode, .stale)
+
+        var unanswered = carried
+        unanswered.carriedOver = nil
+        unanswered.unanswered = ["watchung|hoboken"]
+        unanswered.trips = unanswered.trips.filter { $0.fromId != "watchung" }
+        let blank = WidgetPlanner.snapshot(payload: unanswered, runs: [:], destinationId: "hoboken", at: now)
+        XCTAssertNil(blank.updatedAt)
+        XCTAssertTrue(blank.unanswered)
+        XCTAssertFalse(blank.noService, "never answered is not no trains")
+        XCTAssertEqual(blank.feedMode, .stale)
+    }
+
+    func testReusesSavedDataOnlyWhenTheDirectionItShowsIsFresh() {
+        let carried = Payload(generatedAt: now, source: payload.source, trips: payload.trips,
+                              carriedOver: ["hoboken|watchung": at(-20)])
+        XCTAssertTrue(WidgetPlanner.canReuse(carried, now: at(1), pairKey: "watchung|hoboken"))
+        XCTAssertFalse(WidgetPlanner.canReuse(carried, now: at(1), pairKey: "hoboken|watchung"),
+                       "the app's payload is new, but this direction's trips are 21 minutes old")
+        var unanswered = carried
+        unanswered.unanswered = ["watchung|hoboken"]
+        XCTAssertFalse(WidgetPlanner.canReuse(unanswered, now: at(1), pairKey: "watchung|hoboken"))
+
+        XCTAssertEqual(WidgetPlanner.currentPair(destinationId: "hoboken", now: now), ODPair(fromId: "watchung", toId: "hoboken"))
+        XCTAssertEqual(WidgetPlanner.currentPair(destinationId: "penn", now: at(60)), ODPair(fromId: "penn", toId: "watchung"))
+    }
+
+    func testTheWidgetsOwnFetchKeepsTheSavedRideHomeWhenOnlyThatFails() async throws {
+        // 1:30 PM EDT; the ride home fails, the ride in (on screen) answers.
+        let base = date("2026-08-03T17:30:00.000Z")
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" { return FakeNJT.emptyBoard }
+            if variables["origin"].jsString == "Hoboken Terminal" { return NJTHTTPResponse(status: 504, body: Data("{}".utf8)) }
+            return FakeNJT.planner(train: "1101", at: "01:45:00 PM", arrive: "02:24:00 PM")
+        }
+        let savedAt = base.addingTimeInterval(-15 * 60)
+        let saved = Payload(generatedAt: savedAt, source: PayloadSource(kind: .live, detail: "saved"), trips: [
+            makeTrip(fromId: "hoboken", toId: "watchung", trainId: "1159", departure: date("2026-08-03T18:35:00.000Z"), arrival: date("2026-08-03T19:14:00.000Z")),
+        ])
+        let shown = WidgetPlanner.currentPair(destinationId: "hoboken", now: base)
+        let payload = try await NJTClient(transport: fake, clock: { base }).fetchLivePayload(
+            pairs: WidgetPlanner.pairs(destinationId: "hoboken"),
+            plannerOffsets: WidgetPlanner.plannerOffsetsMinutes,
+            required: [shown.key],
+            previous: saved
+        )
+        XCTAssertEqual(payload.carriedOver, ["hoboken|watchung": savedAt])
+        let timeline = WidgetPlanner.timeline(payload: payload, runs: [:], destinationId: "hoboken", now: base)
+        XCTAssertEqual(timeline.first?.next?.trainId, "1101")
+        XCTAssertEqual(timeline.first?.updatedAt, base)
+        let afterFlip = timeline.first { $0.date == date("2026-08-03T18:00:00.000Z") }
+        XCTAssertEqual(afterFlip?.next?.trainId, "1159")
+        XCTAssertEqual(afterFlip?.updatedAt, savedAt, "shown with the time it was fetched, not as fresh")
+        XCTAssertEqual(afterFlip?.feedMode, .stale)
+    }
+
     func testTheWidgetsOwnFetchIsTwoBoardsAndFourPlannerLookups() async throws {
         // 1:30 PM EDT: half an hour before the widget flips to the ride home.
         let base = date("2026-08-03T17:30:00.000Z")

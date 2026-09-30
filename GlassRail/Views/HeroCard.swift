@@ -378,6 +378,15 @@ struct NoServiceView: View {
                         .foregroundStyle(theme.ink.opacity(0.7))
                         .padding(.top, 8)
                 }
+            } else if state.unanswered {
+                // NJ Transit never answered for this direction: unknown, not none.
+                Text("Trains this way didn't load")
+                    .grFont(16.8, .semibold, style: .headline)
+                    .padding(.top, 12)
+                Text("NJ Transit didn't answer for this direction. Pull down to refresh.")
+                    .grFont(12.8, style: .subheadline)
+                    .foregroundStyle(theme.ink.opacity(0.78))
+                    .padding(.top, 4)
             } else {
                 // Sample or stale data with nothing left this way.
                 Text("No more trains this way")

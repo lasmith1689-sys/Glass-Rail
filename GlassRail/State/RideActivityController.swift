@@ -60,9 +60,13 @@ final class RideActivityController {
             return
         }
 
-        let content = RideActivityAttributes.ContentState(view: hero, state: state, updatedAt: updatedAt ?? now, now: now)
-        let staleDate = content.plan.phaseEnds(at: now)
         let running = kept.first { $0.activityState == .active || $0.activityState == .stale }
+        // "Updated" must say how old the times really are: the direction's own
+        // fetch time. Without one (NJ Transit never answered for it), keep the
+        // time already shown, or wait for the next refresh.
+        guard let stamp = updatedAt ?? running?.content.state.updatedAt else { return }
+        let content = RideActivityAttributes.ContentState(view: hero, state: state, updatedAt: stamp, now: now)
+        let staleDate = content.plan.phaseEnds(at: now)
         // Copies ended when the app was last suspended make way for a live one.
         for activity in kept where activity.id != running?.id {
             end(activity, reason: "replaced by a live activity")

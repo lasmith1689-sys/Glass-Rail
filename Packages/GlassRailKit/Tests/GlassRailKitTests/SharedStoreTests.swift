@@ -49,6 +49,32 @@ final class SharedStoreTests: XCTestCase {
         XCTAssertNil(store.snapshot)
     }
 
+    func testSnapshotKeepsEachDirectionsFetchTime() {
+        let now = date("2026-08-04T18:00:00.000Z")
+        let payload = Payload(
+            generatedAt: now,
+            source: PayloadSource(kind: .live, detail: "Live"),
+            trips: [makeTrip(fromId: "watchung", toId: "penn", trainId: "6218", departure: now, arrival: nil)],
+            carriedOver: ["watchung|penn": now.addingTimeInterval(-300)],
+            unanswered: ["penn|watchung"]
+        )
+        store.snapshot = SharedStore.Snapshot(payload: payload, runs: [:])
+        XCTAssertEqual(store.snapshot?.payload, payload)
+        XCTAssertEqual(store.snapshot?.payload.updatedAt(forPair: "watchung|penn"), now.addingTimeInterval(-300))
+        XCTAssertNil(store.snapshot?.payload.updatedAt(forPair: "penn|watchung"))
+    }
+
+    func testAPayloadSavedBeforePerDirectionTimesStillLoads() throws {
+        let json = #"{"generatedAt":"2026-08-04T18:00:00.000Z","source":{"kind":"live","detail":"Live"},"trips":[]}"#
+        let payload = try GlassRailJSON.decoder().decode(Payload.self, from: Data(json.utf8))
+        XCTAssertNil(payload.carriedOver)
+        XCTAssertNil(payload.unanswered)
+        XCTAssertEqual(payload.updatedAt(forPair: "watchung|hoboken"), date("2026-08-04T18:00:00.000Z"))
+        // And a fresh payload writes no extra keys.
+        let written = String(decoding: try GlassRailJSON.encoder().encode(payload), as: UTF8.self)
+        XCTAssertFalse(written.contains("carriedOver"))
+    }
+
     func testReadsTheAppGroupFromInfoPlistWithAFallback() {
         XCTAssertEqual(SharedStore.appGroup(in: Bundle(for: SharedStoreTests.self)), SharedStore.defaultAppGroup)
     }

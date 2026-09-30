@@ -50,6 +50,7 @@ final class BoardModel {
     @ObservationIgnored private var lastRunsFetch = Date.distantPast
     @ObservationIgnored private var lastWidgetReload = Date.distantPast
     @ObservationIgnored private var started = false
+    @ObservationIgnored private var catchUpScheduled = false
 
     /// How often the board polls NJ Transit, like v4.
     static let refreshInterval: Duration = .seconds(60)
@@ -156,7 +157,13 @@ final class BoardModel {
         guard demo == nil, !fetchingPayload else { return }
         fetchingPayload = true
         do {
-            let fresh = try await client.fetchLivePayload()
+            // Only the direction on screen has to refresh. Any other direction
+            // whose lookup fails keeps its previous trips, which age (and turn
+            // STALE) on their own clock if the rider switches to it.
+            let fresh = try await client.fetchLivePayload(
+                required: [shownPair.key],
+                previous: payload?.source.kind == .live ? payload : nil
+            )
             let at = Date()
             trackState.ingest(fresh, now: at)
             payload = fresh
@@ -165,9 +172,10 @@ final class BoardModel {
             persistSnapshot()
             reloadWidgetsIfDue()
         } catch {
-            // Keep showing the last live data (it turns STALE after two
-            // misses); with nothing to show at all, fall back to the bundled
-            // sample, always labeled SAMPLE.
+            // The direction on screen didn't refresh. Keep showing the last
+            // live data (it turns STALE after two misses); with nothing to
+            // show at all, fall back to the bundled sample, always labeled
+            // SAMPLE.
             fetchFailures += 1
             if payload == nil {
                 payload = SampleFixture.payload(
@@ -194,6 +202,32 @@ final class BoardModel {
         runs.merge(fresh) { _, new in new }
         persistSnapshot()
         recompute()
+    }
+
+    /// The direction the board shows right now (by clock, destination and
+    /// any flip), which a refresh must not fail for.
+    private var shownPair: ODPair {
+        if let state { return ODPair(fromId: state.from.id, toId: state.to.id) }
+        let at = Date()
+        return BoardEngine.shownPair(now: at, destinationId: destinationId, modeOverride: Direction.effectiveOverride(modeOverride, now: at))
+    }
+
+    /// The board just switched to a direction whose trips didn't come from the
+    /// last refresh (its lookup failed then, so they were carried over): fetch
+    /// now rather than at the next minute, once any refresh in flight is done.
+    private func catchUpIfShowingCarriedData() {
+        guard demo == nil, !catchUpScheduled, let state, let payload,
+              payload.source.kind == .live, payload.isCarriedOver(pair: state.dirKey) else { return }
+        catchUpScheduled = true
+        Task { [weak self] in
+            while self?.fetchingPayload == true {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            guard let self else { return }
+            self.catchUpScheduled = false
+            guard let state = self.state, self.payload?.isCarriedOver(pair: state.dirKey) == true else { return }
+            await self.loadLive()
+        }
     }
 
     private func scheduleRunsIfNeeded() {
@@ -250,10 +284,16 @@ final class BoardModel {
         if let label = watcher.observe(next, now: now) {
             showDeparted(label, dirKey: next.dirKey)
         }
+        let switched = next.dirKey != state?.dirKey
         if next != state { state = next }
         scheduleRunsIfNeeded()
-        rides.sync(pin: pin, state: state, updatedAt: payload.generatedAt, now: now)
+        if switched { catchUpIfShowingCarriedData() }
+        // The ride's times are as old as its direction's trips.
+        rides.sync(pin: pin, state: state, updatedAt: next.dataUpdatedAt, now: now)
     }
+
+    /// When the trips on screen were fetched (nil: never, for this direction).
+    var dataUpdatedAt: Date? { state?.dataUpdatedAt }
 
     private func showDeparted(_ label: String, dirKey: String) {
         departedNotice = DepartedNotice(label: label, dirKey: dirKey)

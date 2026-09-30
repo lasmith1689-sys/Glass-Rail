@@ -23,7 +23,7 @@ struct WidgetGallery: View {
                 }
                 tile(.systemMedium, snapshot: snapshot)
                 if let state = model.state,
-                   let ride = RideActivityAttributes.preview(state: state, updatedAt: model.payload?.generatedAt ?? model.now, now: model.now) {
+                   let ride = RideActivityAttributes.preview(state: state, updatedAt: model.dataUpdatedAt ?? model.now, now: model.now) {
                     Text("Live Activity").kicker()
                     RideLockScreenView(attributes: ride.0, state: ride.1)
                         .frame(width: 364, alignment: .leading)

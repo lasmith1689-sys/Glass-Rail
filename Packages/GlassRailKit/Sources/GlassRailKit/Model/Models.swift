@@ -93,11 +93,34 @@ public struct Payload: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var source: PayloadSource
     public var trips: [Trip]
+    /// Directions (`from|to`, as looked up) whose lookup failed in the refresh
+    /// that built this payload, so their trips were carried over from an
+    /// earlier one: when those trips were fetched. Every other direction is
+    /// as of `generatedAt`. nil in older saved payloads.
+    public var carriedOver: [String: Date]?
+    /// Directions whose lookup failed with nothing to carry over. Their trips
+    /// are unknown, which is not the same as none.
+    public var unanswered: [String]?
 
-    public init(generatedAt: Date, source: PayloadSource, trips: [Trip]) {
+    public init(generatedAt: Date, source: PayloadSource, trips: [Trip], carriedOver: [String: Date]? = nil, unanswered: [String]? = nil) {
         self.generatedAt = generatedAt
         self.source = source
         self.trips = trips
+        self.carriedOver = carriedOver
+        self.unanswered = unanswered
+    }
+
+    /// When one direction's trips were fetched: `generatedAt`, or earlier for
+    /// a direction carried over from a previous refresh. nil when its lookup
+    /// failed with nothing to carry over.
+    public func updatedAt(forPair key: String) -> Date? {
+        if unanswered?.contains(key) == true { return nil }
+        return carriedOver?[key] ?? generatedAt
+    }
+
+    /// True when this refresh did not get its own answer for the direction.
+    public func isCarriedOver(pair key: String) -> Bool {
+        carriedOver?[key] != nil || unanswered?.contains(key) == true
     }
 }
 

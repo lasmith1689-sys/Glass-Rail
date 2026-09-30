@@ -227,16 +227,29 @@ public struct NJTClient: Sendable {
     /// from the nearest station with service (the Montclair Branch runs no
     /// weekend trains north of Bay Street).
     ///
-    /// Throws when nothing at all came back and something failed, and when
-    /// any direction's planner window failed: an empty direction must mean
-    /// "no trains", never "NJ Transit didn't answer", so an outage makes the
-    /// board keep its last data (and turn STALE) instead of claiming there is
-    /// no service. A failed departure board only costs tracks and status, so
-    /// it still yields a (partial) payload.
+    /// A direction whose planner window failed (see `PlannerWindow.failed`),
+    /// or whose nearby-station retry failed, has no trustworthy answer: an
+    /// empty direction must mean "no trains", never "NJ Transit didn't
+    /// answer". What happens then depends on `required`:
+    /// - A required direction (the one the board is showing) fails the whole
+    ///   refresh, so the board keeps its last data and turns STALE instead of
+    ///   claiming there is no service. nil means every direction is required.
+    /// - Any other direction keeps its trips from `previous`, marked with when
+    ///   they were fetched (`Payload.carriedOver`), so they turn stale on their
+    ///   own clock; with nothing to carry over it is marked unanswered, which
+    ///   the board never reads as "no trains".
+    ///
+    /// Also throws when nothing at all came back and something failed. A
+    /// failed departure board only costs tracks and status, so it still
+    /// yields a (partial) payload.
     public func fetchLivePayload(
         pairs: [ODPair] = Alternates.defaultPairs(),
-        plannerOffsets: [Int] = NJTQueries.plannerOffsetsMinutes
+        plannerOffsets: [Int] = NJTQueries.plannerOffsetsMinutes,
+        required: Set<String>? = nil,
+        previous: Payload? = nil
     ) async throws -> Payload {
+        func isRequired(_ pair: ODPair) -> Bool { required?.contains(pair.key) ?? true }
+
         var stationIds: [String] = []
         for pair in pairs where !stationIds.contains(pair.fromId) {
             stationIds.append(pair.fromId)
@@ -254,14 +267,20 @@ public struct NJTClient: Sendable {
         var boardIndexes = primary.indexes
 
         let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets)
-        let tripGroups = primaryTrips.groups
-        var allTrips = tripGroups.flatMap { $0 }
-        let plannerFailures = pairs.indices.compactMap { primaryTrips.failures[$0] }
-        if !plannerFailures.isEmpty {
-            throw NJTError.feed((failures + plannerFailures).joined(separator: " | "))
+        /// Why each direction (by index into `pairs`) has no trustworthy answer.
+        var unreliable: [Int: String] = primaryTrips.failures
+        func throwIfARequiredDirectionFailed() throws {
+            let blocking = pairs.indices.filter { unreliable[$0] != nil && isRequired(pairs[$0]) }
+            if !blocking.isEmpty {
+                throw NJTError.feed((failures + blocking.compactMap { unreliable[$0] }).joined(separator: " | "))
+            }
         }
+        try throwIfARequiredDirectionFailed()
 
-        let emptyKeys = Set(pairs.indices.filter { tripGroups[$0].isEmpty }.map { pairs[$0].key })
+        // Directions that answered with no trains are retried from the
+        // nearest station with service; the retry belongs to its direction.
+        var extraTrips: [Int: [Trip]] = [:]
+        let emptyKeys = Set(pairs.indices.filter { unreliable[$0] == nil && primaryTrips.groups[$0].isEmpty }.map { pairs[$0].key })
         let extraPairs = Alternates.substitutePairs(
             pairs,
             emptyPairKeys: emptyKeys,
@@ -275,29 +294,73 @@ public struct NJTClient: Sendable {
             }
             let extra = await boards(for: extraStations)
             for (id, index) in extra.indexes { boardIndexes[id] = index }
-            let extraTrips = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets)
-            allTrips.append(contentsOf: extraTrips.groups.flatMap { $0 })
-            // The nearby station's list is what the board offers instead, so
-            // it must not silently vanish either.
-            let extraFailures = extraPairs.indices.compactMap { extraTrips.failures[$0] }
-            if !extraFailures.isEmpty {
-                throw NJTError.feed((failures + extraFailures).joined(separator: " | "))
+            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets)
+            for (index, extraPair) in extraPairs.enumerated() {
+                guard let owner = pairs.indices.first(where: { Self.alternateKeys(for: pairs[$0]).contains(extraPair.key) && emptyKeys.contains(pairs[$0].key) }) else { continue }
+                if let failure = retried.failures[index] {
+                    // The nearby station's list is what the board offers
+                    // instead, so it must not silently vanish either.
+                    if unreliable[owner] == nil { unreliable[owner] = failure }
+                } else {
+                    extraTrips[owner, default: []].append(contentsOf: retried.groups[index])
+                }
+            }
+            try throwIfARequiredDirectionFailed()
+        }
+
+        // Answered directions first, in pair order, then their nearby-station
+        // trips; a direction without an answer keeps what it had.
+        var allTrips: [Trip] = []
+        var carried: [String: Date] = [:]
+        var unanswered: [String] = []
+        var kept: [String] = []
+        for index in pairs.indices where unreliable[index] == nil {
+            allTrips.append(contentsOf: primaryTrips.groups[index])
+        }
+        for index in pairs.indices where unreliable[index] == nil {
+            allTrips.append(contentsOf: extraTrips[index] ?? [])
+        }
+        for index in pairs.indices {
+            guard let failure = unreliable[index] else { continue }
+            kept.append(failure)
+            let pair = pairs[index]
+            if let previous, previous.source.kind == .live, let fetched = previous.updatedAt(forPair: pair.key) {
+                let keys = Self.alternateKeys(for: pair).union([pair.key])
+                allTrips.append(contentsOf: previous.trips.filter { keys.contains("\($0.fromId)|\($0.toId)") })
+                carried[pair.key] = fetched
+            } else {
+                unanswered.append(pair.key)
             }
         }
         if allTrips.isEmpty && !failures.isEmpty {
             throw NJTError.feed(failures.joined(separator: " | "))
         }
 
+        var notes: [String] = []
+        if !failures.isEmpty { notes.append("some boards unavailable: \(failures.joined(separator: ", "))") }
+        if !kept.isEmpty { notes.append("earlier trips kept for \(kept.joined(separator: ", "))") }
         return Payload(
             generatedAt: clock(),
             source: PayloadSource(
                 kind: .live,
-                detail: failures.isEmpty
+                detail: notes.isEmpty
                     ? "Live NJ Transit rail planner with origin-board tracks."
-                    : "Live NJ Transit feed (partial, some boards unavailable: \(failures.joined(separator: ", ")))."
+                    : "Live NJ Transit feed (partial, \(notes.joined(separator: "; ")))."
             ),
-            trips: allTrips
+            trips: allTrips,
+            carriedOver: carried.isEmpty ? nil : carried,
+            unanswered: unanswered.isEmpty ? nil : unanswered
         )
+    }
+
+    /// The nearby-station lookups that stand in for `pair` when it has no trains.
+    static func alternateKeys(for pair: ODPair) -> Set<String> {
+        Set(Alternates.alternateRoutes(
+            fromId: pair.fromId,
+            toId: pair.toId,
+            homeId: UserConfig.homeId,
+            fallbackIds: UserConfig.fallbackOriginIds
+        ).map(\.key))
     }
 
     // MARK: Stop lists

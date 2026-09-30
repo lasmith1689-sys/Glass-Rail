@@ -15,7 +15,7 @@ struct BoardScreen: View {
             ThemeBackdrop(theme: theme, lively: true)
                 .ignoresSafeArea()
             VStack(spacing: 0) {
-                HeaderBar(feedMode: model.state?.feedMode, generatedAt: model.payload?.generatedAt, now: model.now)
+                HeaderBar(feedMode: model.state?.feedMode, generatedAt: model.dataUpdatedAt, now: model.now)
                 GeometryReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
@@ -51,7 +51,7 @@ struct BoardScreen: View {
                     .refreshable { await model.refresh() }
                 }
                 FooterBar(
-                    generatedAt: model.payload?.generatedAt,
+                    generatedAt: model.dataUpdatedAt,
                     now: model.now,
                     refreshing: refreshing,
                     onRefresh: {

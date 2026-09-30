@@ -82,14 +82,21 @@ The phone talks to NJ Transit's public GraphQL endpoint directly
 header v4 sent: `getTripPlannerSchedule` (four lookups spread over the next few hours per direction),
 `getTrainDepartureScreens` (tracks and status per origin station) and `getTrainStopList` (live stop
 times, up to eight trains per refresh). There is no server. The widget reuses the app's data when
-it is at most 5 minutes old; otherwise it fetches only the two directions for your chosen terminal,
-with two planner lookups each (now and 75 minutes out).
+the direction it shows is at most 5 minutes old there; otherwise it fetches only the two directions
+for your chosen terminal, with two planner lookups each (now and 75 minutes out).
 
 If NJ Transit can't be reached, the board keeps the last live data (turning `STALE`); with nothing to
-show at all it falls back to the bundled sample, labeled `SAMPLE`. A planner that fails for any
-direction counts as a failed refresh too (all of its lookups, or the first one, which covers the next
-trains), so an outage never shows up as "No trains" under a `LIVE` badge; that message only appears
-when NJ Transit answered with no trains.
+show at all it falls back to the bundled sample, labeled `SAMPLE`. A direction's planner counts as
+failed when all of its lookups fail, or the first one (which covers the next trains). Only the
+direction on screen has to refresh: when its planner fails (or, on a day with no trains at Watchung
+Avenue, Bay Street's), the whole refresh counts as failed, so an outage never shows up as "No trains"
+under a `LIVE` badge; that message only appears when NJ Transit answered with no trains. Any other
+direction that fails keeps its trips from the last refresh, dated by when they were fetched, so it
+turns `STALE` on its own clock: switch to it and the header says how old its trains are ("Updated 2m
+ago", `STALE` after 3.5 minutes), and the app refreshes right away. The widget ("Updated 1:58 PM" on
+the medium size) and the Live Activity ("Updated") show that same per-direction time, never the time
+of a refresh that didn't reach them. A direction with nothing to carry over reads "Trains this way
+didn't load" (the widget: "Not loaded"), never "No trains".
 
 NJ Transit's planner does not answer "no trains" with an empty list. Asked about Watchung Avenue on a
 Saturday, it replies HTTP 200 with a GraphQL error, "We're sorry. We were unable to find trips
@@ -107,7 +114,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 236 tests: v4's 138 vitest cases, one XCTest each, plus 98 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, and 3 AM), planner outages, the board engine, the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 249 tests: v4's 138 vitest cases, one XCTest each, plus 111 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, and 3 AM), planner outages, directions carried over from an earlier refresh, the board engine, the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -163,7 +170,8 @@ launch arguments (used by CI's smoke test):
   When NJ Transit fails, v4's server replaced the board with sample data; the app keeps the last live
   data and marks it `STALE` instead, and uses the sample only when it has nothing else.
 - v4 ignored failed planner lookups, so a planner outage read as "No trains from Watchung Ave". The
-  app treats it as a failed refresh (see above).
+  app treats it as a failed refresh for the direction on screen and keeps the last trips, with their
+  own time, for the others (see above).
 - A manual AM/PM flip lapses at the next 2 PM or midnight boundary. v4's rule, ported unchanged,
   would honour a morning flip to PM again the next morning; v4 never hit this because a reload
   dropped the flip, but an iOS app can stay in memory for days.
