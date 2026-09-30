@@ -154,11 +154,34 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 15
     continue-on-error: true
+    permissions:
+      contents: write # only to force-push the raw replies to the ci-njt-probe branch
     steps:
       - uses: actions/checkout@v5
 
       - name: Query NJ Transit from the runner
         run: swift run --package-path Packages/GlassRailKit njt-probe njt-probe-out
+
+      - name: Ask the planner about windows with no trains (next Saturday 10 AM, a weekday 3 AM)
+        if: always()
+        run: swift run --package-path Packages/GlassRailKit njt-probe njt-probe-out/no-service no-service
+
+      - name: Publish the raw replies to the ci-njt-probe branch
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls njt-probe-out/* >/dev/null 2>&1 || exit 0
+          out=$(mktemp -d)
+          cp -R njt-probe-out/. "$out/"
+          cd "$out"
+          git init -q -b ci-njt-probe
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "NJ Transit replies for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-njt-probe
+          echo "::notice title=Raw replies::Pushed $(find . -name '*.json' | wc -l | tr -d ' ') replies of ${GITHUB_SHA::7} to the ci-njt-probe branch."
 
       - name: Upload raw replies
         if: always()

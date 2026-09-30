@@ -2,7 +2,8 @@
 // on a personal machine). Prints the shape of each reply and what the parser
 // makes of it, and writes the raw replies to the output directory.
 //
-//   swift run --package-path Packages/GlassRailKit njt-probe <out-dir>
+//   swift run --package-path Packages/GlassRailKit njt-probe <out-dir>              the live board now
+//   swift run --package-path Packages/GlassRailKit njt-probe <out-dir> no-service   windows with no trains
 import Foundation
 import GlassRailKit
 
@@ -20,7 +21,9 @@ final class Recorder: NJTTransport, @unchecked Sendable {
     }
 }
 
-let outDir = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "njt-probe-out")
+let arguments = Array(CommandLine.arguments.dropFirst())
+let outDir = URL(fileURLWithPath: arguments.first ?? "njt-probe-out")
+let mode = arguments.dropFirst().first ?? "live"
 try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
 /// A GitHub annotation (single line; newlines escaped as GitHub expects).
@@ -45,6 +48,11 @@ func compact(_ data: Data, limit: Int = 2800) -> String {
 
 func save(_ name: String, _ data: Data) {
     try? data.write(to: outDir.appendingPathComponent(name))
+}
+
+if mode == "no-service" {
+    await probeNoService()
+    exit(0)
 }
 
 let recorder = Recorder()
