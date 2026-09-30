@@ -10,11 +10,16 @@ import XCTest
 ///   10:00 AM. HTTP 200 with a GraphQL error, "We're sorry. We were unable to
 ///   find trips between your origin and destination.", and a null schedule.
 ///   The other three Watchung Avenue directions got the identical reply.
-/// - live-planner-saturday-baystreet-hoboken / -hoboken-baystreet: Bay Street
-///   at the same moment, which does have weekend trains.
+/// - live-planner-saturday-baystreet-hoboken / -hoboken-baystreet /
+///   -baystreet-penn / -penn-baystreet: Bay Street at the same moment, which
+///   does have weekend trains (to and from Penn with a change at Newark
+///   Broad Street).
 /// - live-planner-3am-watchung-hoboken / -hoboken-watchung: Thursday 10/01 at
 ///   3:00 AM. Not a "no trains" reply: the planner answers with the first
 ///   trains of the morning.
+/// - live-planner-bad-station: a made-up origin, same moment. The same shape
+///   (HTTP 200, INTERNAL_SERVER_ERROR, null schedule) with a different
+///   message, which must stay a failure.
 final class NoServiceTests: XCTestCase {
     /// Saturday 2026-10-03, 10:00 AM EDT.
     let saturday = date("2026-10-03T14:00:00.000Z")
@@ -34,6 +39,8 @@ final class NoServiceTests: XCTestCase {
             switch (variables["origin"].jsString, variables["destination"].jsString) {
             case ("Bay Street Station", "Hoboken Terminal"): return FakeNJT.ok(fixture("live-planner-saturday-baystreet-hoboken"))
             case ("Hoboken Terminal", "Bay Street Station"): return FakeNJT.ok(fixture("live-planner-saturday-hoboken-baystreet"))
+            case ("Bay Street Station", "New York Penn Station"): return FakeNJT.ok(fixture("live-planner-saturday-baystreet-penn"))
+            case ("New York Penn Station", "Bay Street Station"): return FakeNJT.ok(fixture("live-planner-saturday-penn-baystreet"))
             default: return FakeNJT.ok(fixture("live-planner-no-trips"))
             }
         }
@@ -85,7 +92,7 @@ final class NoServiceTests: XCTestCase {
 
     func testASaturdayAtWatchungAvenueIsNoTrainsWithBayStreetInstead() async throws {
         let fake = saturdayFeed()
-        let payload = try await client(fake, at: saturday).fetchLivePayload(pairs: hobokenPairs)
+        let payload = try await client(fake, at: saturday).fetchLivePayload()
         XCTAssertEqual(payload.source.kind, .live)
         XCTAssertEqual(payload.source.detail, "Live NJ Transit rail planner with origin-board tracks.")
         XCTAssertFalse(payload.trips.contains { $0.fromId == "watchung" || $0.toId == "watchung" })
@@ -111,6 +118,21 @@ final class NoServiceTests: XCTestCase {
         XCTAssertEqual(outbound.alternate?.to.id, "baystreet")
         XCTAssertEqual(outbound.alternate?.views.map(\.trip.trainId), ["519", "523", "527"])
         XCTAssertEqual(outbound.alternate?.views.first?.trip.departure, date("2026-10-03T14:08:00.000Z"))
+
+        // Penn Station the same way, with a change at Newark Broad Street.
+        let toPenn = BoardEngine.compute(BoardInputs(payload: payload, now: saturday, destinationId: "penn"))
+        XCTAssertEqual(toPenn.dirKey, "watchung|penn")
+        XCTAssertTrue(toPenn.noService)
+        XCTAssertEqual(toPenn.alternate?.from.id, "baystreet")
+        XCTAssertEqual(toPenn.alternate?.to.id, "penn")
+        XCTAssertEqual(toPenn.alternate?.views.first?.trip.trainId, "518")
+        XCTAssertEqual(toPenn.alternate?.views.first?.trip.transferAt, ["Newark Broad"])
+        let fromPenn = BoardEngine.compute(BoardInputs(payload: payload, now: saturday, destinationId: "penn", modeOverride: ModeOverride(mode: .pm, at: saturday)))
+        XCTAssertEqual(fromPenn.dirKey, "penn|watchung")
+        XCTAssertTrue(fromPenn.noService)
+        XCTAssertEqual(fromPenn.alternate?.to.id, "baystreet")
+        XCTAssertEqual(fromPenn.alternate?.views.first?.trip.trainId, "6919")
+        XCTAssertEqual(fromPenn.alternate?.views.first?.trip.departure, date("2026-10-03T14:11:00.000Z"))
     }
 
     func testTheSmallHoursShowTheFirstMorningTrainsNotNoService() async throws {
@@ -150,6 +172,35 @@ final class NoServiceTests: XCTestCase {
         }
         // Not mistaken for "no service here": nothing is retried from Bay Street.
         XCTAssertFalse(fake.calls.contains { $0.variables["origin"].jsString == "Bay Street Station" })
+    }
+
+    func testTheSameShapedErrorForABadStationIsStillAFailure() async {
+        let badStation = fixtureJSON("live-planner-bad-station")
+        XCTAssertFalse(NJTParse.isNoTripsReply(badStation))
+        let expected = NJTError.graphQL("Cannot destructure property 'latLong' of '(intermediate value)' as it is undefined.")
+        let lookup = FakeNJT { _, _ in FakeNJT.ok(fixture("live-planner-bad-station")) }
+        await expectFailure({
+            _ = try await client(lookup, at: saturday).fetchTripPlanner(origin: "Nowhere Station", destination: "Hoboken Terminal", at: saturday)
+        }) { error in
+            XCTAssertEqual(error as? NJTError, expected)
+        }
+
+        // On the board: one direction answering like that fails the refresh.
+        let feed = FakeNJT { operation, variables in
+            if operation == "board" { return FakeNJT.emptyBoard }
+            if variables["origin"].jsString == "Watchung Avenue Station" && variables["destination"].jsString == "Hoboken Terminal" {
+                return FakeNJT.ok(fixture("live-planner-bad-station"))
+            }
+            return FakeNJT.ok(fixture("live-planner-no-trips"))
+        }
+        await expectFailure({
+            _ = try await client(feed, at: saturday).fetchLivePayload(pairs: hobokenPairs)
+        }) { error in
+            guard case .feed(let message)? = error as? NJTError else {
+                return XCTFail("unexpected error \(error)")
+            }
+            XCTAssertTrue(message.contains("Watchung Avenue Station to Hoboken Terminal planner: Cannot destructure property"), message)
+        }
     }
 
     func testTheNoTripsWordsOnAnHTTPErrorAreStillAFailure() async {

@@ -96,7 +96,9 @@ Saturday, it replies HTTP 200 with a GraphQL error, "We're sorry. We were unable
 between your origin and destination.", and a null schedule (the same reply for all four
 directions). The app reads exactly that reply as "no trains", so the board says "No trains from
 Watchung Ave" and lists the next trains from Bay Street. Any other GraphQL error, that text on an
-HTTP error, a non-JSON reply or a missing schedule is still a failed lookup. At 3 AM on a weekday
+HTTP error, a non-JSON reply or a missing schedule is still a failed lookup; so is a station name
+the planner doesn't know, which gets a different error ("Cannot destructure property 'latLong'..."),
+so a renamed station would show up as a failed refresh, never as "no trains". At 3 AM on a weekday
 there is no gap to handle: the planner returns the first trains of the morning (4:48 AM toward the
 city). These replies were captured from the live feed and are kept as test fixtures.
 
@@ -105,7 +107,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 235 tests: v4's 138 vitest cases, one XCTest each, plus 97 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, and 3 AM), planner outages, the board engine, the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 236 tests: v4's 138 vitest cases, one XCTest each, plus 98 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, and 3 AM), planner outages, the board engine, the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
