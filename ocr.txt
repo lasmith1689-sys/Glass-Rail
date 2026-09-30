@@ -1,0 +1,539 @@
+===== 01-live.png =====
+  4%  9:41  |  •ll
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 18s ago
+ 17%  YOUR RIDE AM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 36%  11:57 AM
+ 41%  in 42m
+ 43%  Train 6230 to Hoboken
+ 47%  PICKUP  |  DROP-OFF
+ 50%  11:57 AM  |  1:06 PM
+ 52%  ON TIME  |  SCHEDULED
+ 54%  Watchung Ave  |  Hoboken
+ 57%  1 transfer at Secaucus
+ 61%  CONNECTION AT SECAUCUS  |  12:53 PM
+ 63%  Train 1114
+ 68%  TRAIN POSITION
+ 70%  Starts at Montclair State U • 11:46 AM
+ 74%  SERVICE  |  TYPE  |  TRACK
+ 76%  #6230  |  1 transfer  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:57 PM • 1:57 PM • 2:55 PM + 2 more
+ 93%  C Refresh  |  Fresh 18s ago
+===== 02-delayed.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh Os ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  DELAYED 6M
+ 39%  12:03 PM
+ 44%  in 46m
+ 46%  Originally 11:57 AM
+ 49%  Train 1074 to Hoboken
+ 52%  PICKUP  |  DROP-OFF
+ 55%  12:03 PM  |  12:38 PM
+ 58%  • 6M LATE  |  • 2M LATE
+ 60%  Watchung Ave  |  Hoboken
+ 64%  TRAIN POSITION
+ 67%  Past Lincoln Park • next Mountain View
+ 71%  SERVICE  |  TYPE  |  TRACK
+ 73%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:23 PM • 12:49 PM • 1:19 PM
+ 93%  C Refresh  |  Fresh Os ago
+===== 03-track-changed.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 6s ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 33%  • TRACK CHANGED  |  Track 2 → 3
+ 39%  11:57 AM
+ 44%  in 40m
+ 47%  Train 1074 to Hoboken
+ 51%  PICKUP  |  DROP-OFF
+ 53%  11:57 AM  |  12:36 PM
+ 55%  ON TIME  |  ON TIME
+ 57%  Watchung Ave  |  Hoboken
+ 62%  TRAIN POSITION
+ 64%  Past Mountain View • next Wayne-Route 23
+ 68%  SERVICE  |  TYPE  |  TRACK
+ 70%  #1074  |  Direct  |  Tk 3
+ 85%  LATER THIS WAY
+ 87%  12:19 PM • 12:49 PM • 1:19 PM
+ 93%  C Refresh  |  Fresh 6s ago
+===== 04-riding.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 4s ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 34%  • PINNED • SHOW NEXT
+ 40%  11:06 AM
+ 45%  Arrives in 27m
+ 47%  Train 1074 to Hoboken
+ 51%  PICKUP  |  DROP-OFF
+ 53%  11:06 AM  |  11:45 AM
+ 56%  ON TIME  |  ON TIME
+ 58%  Watchung Ave  |  Hoboken
+ 62%  TRAIN POSITION
+ 64%  Past Bay Street • next Glen Ridge
+ 69%  SERVICE  |  TYPE  |  TRACK
+ 71%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  11:28 AM • 11:58 AM • 12:28 PM
+ 93%  C Refresh  |  Fresh 4s ago
+===== 04c-backgrounded.png =====
+  3%  9:41
+  5%  • Glass Rail
+ 16%  Settings
+ 23%  Apple Account
+ 25%  Sign in to access your iCloud data, the
+ 27%  App Store, Apple services, and more.
+ 37%  Ready for Apple Intelligence
+ 47%  General
+ 53%  Accessibility  |  >
+ 58%  Action Button  |  >
+ 65%  Apple Intelligence & Siri
+ 70%  Camera
+ 76%  Home Screen & App Library
+ 82%  Search  |  >
+ 88%  StandBy
+ 94%  Q Search
+ 98%  Screen Time
+===== 04b-riding-before-drop.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 4s ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 34%  • PINNED • SHOW NEXT
+ 40%  11:07 AM
+ 45%  Arrives in 27m
+ 47%  Train 1074 to Hoboken
+ 51%  PICKUP  |  DROP-OFF
+ 53%  11:07 AM  |  11:46 AM
+ 56%  ON TIME  |  ON TIME
+ 57%  Watchung Ave  |  Hoboken
+ 62%  TRAIN POSITION
+ 64%  Past Bay Street • next Glen Ridge
+ 68%  SERVICE  |  TYPE  |  TRACK
+ 71%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  11:29 AM • 11:59 AM • 12:29 PM
+ 93%  C Refresh  |  Fresh 4s ago
+===== 05-departed.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 8s ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 34%  Train 1074 has departed
+ 40%  11:39 AM
+ 45%  in 19m
+ 47%  Train 1078 to Hoboken
+ 51%  PICKUP  |  DROP-OFF
+ 53%  11:39 AM  |  12:18 PM
+ 56%  ON TIME  |  ON TIME
+ 57%  Watchung Ave  |  Hoboken
+ 62%  TRAIN POSITION
+ 64%  Past Little Falls • next Montclair State U
+ 68%  SERVICE  |  TYPE  |  TRACK
+ 71%  #1078  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:09 PM • 12:39 PM
+ 93%  C Refresh  |  Fresh 8s ago
+===== 06-stale.png =====
+  4%  9:41  |  •1 S
+  9%  RAIL PLANNER  |  STALE
+ 12%  Glass Rail
+ 13%  Updated 5m ago
+ 15%  Data may be outdated.
+ 20%  YOUR RIDE  |  AM
+ 22%  Watchung Ave → Hoboken
+ 26%  HOB  |  NYP
+ 33%  WATCHUNG AVE  |  HOBOKEN
+ 38%  12:00 PM
+ 43%  in 40m
+ 46%  Train 1074 to Hoboken
+ 50%  PICKUP  |  DROP-OFF
+ 52%  12:00 PM  |  12:39 PM
+ 54%  ON TIME  |  ON TIME
+ 56%  Watchung Ave  |  Hoboken
+ 61%  TRAIN POSITION
+ 63%  Past Mountain View • next Wayne-Route 23
+ 67%  SERVICE  |  TYPE  |  TRACK
+ 69%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:22 PM • 12:52 PM • 1:22 PM
+ 93%  C Refresh  |  Updated 5m ago
+===== 07-sample.png =====
+  4%  9:41  |  •1l-
+  9%  RAIL PLANNER  |  • SAMPLE
+ 12%  Glass Rail
+ 13%  Fresh Os ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 36%  12:00 PM
+ 41%  in 40m
+ 44%  Train 1074 to Hoboken
+ 47%  PICKUP  |  DROP-OFF
+ 50%  12:00 PM  |  12:39 PM
+ 52%  SCHEDULED  |  SCHEDULED
+ 54%  Watchung Ave  |  Hoboken
+ 59%  SERVICE  |  TYPE  |  TRACK
+ 61%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:22 PM • 12:52 PM • 1:22 PM
+ 93%  C Refresh  |  Fresh Os ago
+===== 08-later-sheet.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh Os ago
+ 18%  YOUR RIDE (AM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  DELAYED 6M
+ 39%  12:07 PM
+ 45%  LATER THIS WAY
+ 47%  X
+ 48%  Watchung Ave → Hoboken • 3
+ 52%  Train 1078 • Direct
+ 54%  12:27 PM  |  Arrives 1:02 PM
+ 55%  Tk 2
+ 56%  in 1h 6m
+ 57%  DELAYED 4M
+ 61%  12:53 PM Train 1082 • Direct
+ 63%  in 1h 32m  |  Arrives 1:32 PM
+ 68%  1:23 PM  |  Train 1086 • Direct
+ 69%  in 2h 2m  |  Arrives 2:02 PM
+===== 09-stops-sheet.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 4s ago
+ 18%  YOUR RIDE (AM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 34%  • PINNED . SHOW NEXT
+ 37%  TRAIN 1074 • ALL STOPS
+ 39%  3 stops ahead
+ 44%  • Lincoln Park  |  10:14 AM
+ 47%  • Mountain View  |  10:24 AM
+ 51%  • Wayne-Route 23  |  10:34 AM
+ 54%  • Little Falls  |  10:44 AM
+ 58%  • Montclair State U  |  10:54 AM
+ 61%  • Upper Montclair  |  11:04 AM
+ 65%  • Watchung Avenue Board  |  11:09 AM
+ 68%  • Bay Street  |  11:19 AM
+ 72%  • Glen Ridge NEXT  |  11:28 AM
+ 75%  Newark Broad Street  |  11:38 AM
+ 78%  Hoboken Terminal YOUR STOP  |  11:48 AM
+===== 10-settings.png =====
+  4%  9:41  |  •1l -
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh Os ago
+ 17%  YOUR RIDE AM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 36%  11:57 AM
+ 41%  in 35m
+ 45%  SETTINGS
+ 47%  Choose a look  |  X
+ 65%  Glass  |  Midnight
+ 67%  Default • see-through glass  |  Pure OLED dark
+ 77%  -
+ 84%  Aurora  |  Sunset
+ 86%  Purple & teal glow  |  Warm dusk gradient
+===== 11-widgets.png =====
+  4%  9:41  |  •il
+ 10%  GLASS RAIL WIDGETS
+ 16%  TO HOBOKEN  |  Q Watchung → Hoboken
+ 18%  12:08 PM • Tk 2
+ 20%  Leaves in 45:53  |  +6m
+ 22%  12:08PM
+ 25%  in 45:53
+ 26%  12:08 PM • +6m
+ 30%  • DELAYED 6M  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 39%  12:28 PM +4m  |  Tk 2
+ 42%  12:54 PM  |  Tk --
+ 43%  12:08PM
+ 45%  1:24 PM  |  Tk --
+ 46%  in 45:53
+ 51%  • DELAYED 6M  |  Tk 2  |  Updated 11:22 AM
+ 57%  LIVE ACTIVITY
+ 62%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP 6m late  |  DROP-OFF 2m late  |  TRACK
+ 67%  12:08 PM  |  12:43 PM  |  2
+ 69%  in 46 minutes  |  in 1 hour
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:22 AM • Past Lincoln Park • next Mountain View
+===== 12-theme-midnight.png =====
+  4%  9:41  |  •ll
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh Os ago
+ 18%  YOUR RIDE  |  AM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  • DELAYED 6M
+ 39%  12:08 PM
+ 44%  in 46m
+ 46%  Originally 12:02 PM
+ 49%  Train 1074 to Hoboken
+ 52%  PICKUP  |  DROP-OFF
+ 55%  12:08 PM  |  12:43 PM
+ 58%  • 6M LATE  |  • 2M LATE
+ 60%  Watchung Ave  |  Hoboken
+ 64%  TRAIN POSITION
+ 67%  Past Lincoln Park • next Mountain View
+ 71%  SERVICE  |  TYPE  |  TRACK
+ 73%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:28 PM • 12:54 PM • 1:24 PM
+ 93%  © Refresh  |  Fresh Os ago
+===== 12b-theme-platform.png =====
+  4%  9:41  |  •l S
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 1s ago
+ 18%  YOUR RIDE AM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  DELAYED 6M
+ 39%  12:08 PM
+ 44%  in 46m
+ 46%  Originally 12:02 PM
+ 49%  Train 1074 to Hoboken
+ 52%  PICKUP  |  DROP-OFF
+ 55%  12:08 PM  |  12:43 PM
+ 58%  • 6M LATE  |  • 2M LATE
+ 60%  Watchung Ave  |  Hoboken
+ 64%  TRAIN POSITION
+ 67%  Past Lincoln Park • next Mountain View
+ 71%  SERVICE  |  TYPE  |  TRACK
+ 73%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:28 PM • 12:54 PM • 1:24 PM
+ 93%  C Refresh  |  Fresh 1s ago
+===== 12c-theme-ember.png =====
+  4%  9:41
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail  |  Fresh Os ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  нOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  • DELAYED 6M
+ 39%  12:09 PM
+ 44%  in 46m
+ 46%  Originally 12:03 PM
+ 49%  Train 1074 to Hoboken
+ 52%  PICKUP  |  DROP-OFF
+ 55%  12:09 PM  |  12:44 PM
+ 58%  • 6M LATE  |  • 2M LATE
+ 60%  Watchung Ave  |  Hoboken
+ 64%  TRAIN POSITION
+ 67%  Past Lincoln Park • next Mountain View
+ 71%  SERVICE  |  TYPE  |  TRACK
+ 73%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:29 PM • 12:55 PM • 1:25 PM
+ 93%  C Refresh  |  Fresh Os ago
+===== 12d-theme-navy.png =====
+  4%  9:41
+  9%  RAIL PLANNER  |  LIVE
+ 12%  Glass Rail
+ 13%  Fresh 11s ago
+ 18%  YOUR RIDEAM
+ 20%  Watchung Ave → Hoboken
+ 23%  HOB  |  NYP
+ 30%  WATCHUNG AVE  |  HOBOKEN
+ 33%  DELAYED 6M
+ 39%  12:09 PM
+ 44%  in 46m
+ 46%  Originally 12:03 PM
+ 49%  Train 1074 to Hoboken
+ 52%  PICKUP  |  DROP-OFF
+ 55%  12:09 PM  |  12:44 PM
+ 58%  • 6M LATE  |  • 2M LATE
+ 60%  Watchung Ave  |  Hoboken
+ 64%  TRAIN POSITION
+ 67%  Past Lincoln Park • next Mountain View
+ 71%  SERVICE  |  TYPE  |  TRACK
+ 73%  #1074  |  Direct  |  Tk 2
+ 85%  LATER THIS WAY
+ 87%  12:29 PM • 12:55 PM • 1:25 PM
+ 93%  C Refresh  |  Fresh 11s ago
+===== 12e-theme-station.png =====
+  4%  9:41  |  •1l5
+  9%  RAIL PLANNER  |  • LIVE
+ 12%  Glass Rail  |  Fresh Os ago
+ 18%  YOUR RIDE  |  AM
+ 21%  Watchung Ave → Hoboken
+ 24%  НOB  |  NYP
+ 31%  WATCHUNG AVE  |  HOBOKEN
+ 34%  • DELAYED 6M
+ 41%  12:09 PM
+ 46%  in 46m
+ 49%  Originally 12:03 PM
+ 51%  Train 1074 to Hoboken
+ 55%  PICKUP  |  DROP-OFF
+ 58%  12:09 PM  |  12:44 PM
+ 61%  • 6M LATE  |  • 2M LATE
+ 64%  Watchung Ave  |  Hoboken
+ 68%  TRAIN POSITION
+ 70%  Past Lincoln Park • next Mountain View
+ 75%  SERVICE  |  TYPE  |  TRACK
+ 77%  #1074  |  Direct  |  Tk 2
+ 86%  LATER THIS WAY
+ 88%  12:29 PM - 12:55 PM - 1:25 PM
+ 93%  C Refresh  |  Fresh Os ago
+===== 12f-station-widgets.png =====
+  4%  9:41  |  •il
+ 10%  GLASS RAIL WIDGETS
+ 16%  TO HOBOKEN  |  Watchung → Hoboken
+ 18%  12:10 PM • Tk 2
+ 20%  Leaves in 45:53  |  +6m
+ 22%  12:10 PM
+ 26%  in 45:53
+ 27%  12:10 PM • +6m
+ 30%  • DELAYED 6M  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 40%  12:30 PM +4m  |  Tk 2
+ 43%  12:10PМ  |  12:56 PM  |  Tk-
+ 46%  1:26 PM  |  Tk--
+ 47%  in 45:53
+ 51%  • DELAYED 6M  |  Tk 2  |  Updated 11:24 AM
+ 57%  LIVE ACTIVITY
+ 63%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP 6m late  |  DROP-OFF 2m late  |  TRACK
+ 67%  12:10 PM  |  12:45 PM  |  2
+ 70%  in 46 minutes  |  in 1 hour
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:24 AM • Past Lincoln Park • next Mountain View
+===== 12g-platform-widgets.png =====
+  4%  9:41  |  •ll
+ 10%  GLASS RAIL WIDGETS
+ 16%  TO HOBOKEN  |  Q Watchung → Hoboken
+ 18%  12:10 PM • Tk 2
+ 20%  Leaves in 45:54  |  +6m
+ 22%  12:10PM
+ 25%  in 45:54
+ 26%  12:10 PM • +6m
+ 30%  • DELAYED 6M  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 39%  12:30 PM +4m  |  Tk 2
+ 42%  12:56 PM  |  Tk --
+ 43%  12:10 PM
+ 45%  1:26 PM  |  Tk --
+ 46%  in 45:54
+ 51%  • DELAYED 6M  |  Tk 2  |  Updated 11:24 AM
+ 57%  LIVE ACTIVITY
+ 62%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP 6m late  |  DROP-OFF 2m late  |  TRACK
+ 67%  12:10 PM  |  12:45 PM  |  2
+ 69%  in 46 minutes  |  in 1 hour
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:24 AM • Past Lincoln Park • next Mountain View
+===== 12h-ember-widgets.png =====
+  4%  9:41  |  •1l
+ 10%  GLASS RAIL WIDGETS
+ 15%  TO HOBOKEN  |  Q Watchung → Hoboken
+ 18%  12:10 PM • Tk 2
+ 20%  Leaves in 45:52  |  +6m
+ 22%  12:10 PM
+ 25%  in 45:52
+ 26%  12:10 PM • +6m
+ 30%  • DELAYED 6M  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 39%  12:30 PM +4m  |  Tk 2
+ 42%  12:56 PM  |  Tk --
+ 43%  12:10pM
+ 45%  1:26 PM  |  Tk --
+ 46%  in 45:52
+ 51%  • DELAYED 6M  |  Tk 2  |  Updated 11:24 AM
+ 57%  LIVE ACTIVITY
+ 62%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP 6m late  |  DROP-OFF 2m late  |  TRACK
+ 67%  12:10 PM  |  12:45 PM  |  2
+ 69%  in 46 minutes  |  in 1 hour
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:24 AM • Past Lincoln Park • next Mountain View
+===== 12i-navy-widgets.png =====
+  4%  9:41  |  •ll
+ 10%  GLASS RAIL WIDGETS
+ 16%  TO HOBOKEN  |  Q Watchung → Hoboken
+ 18%  12:10 PM • Tk 2
+ 20%  Leaves in 45:51  |  +6m
+ 22%  12:10PM
+ 25%  in 45:51
+ 26%  12:10 PM • +6m
+ 30%  • DELAYED 6M  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 39%  12:30 PM +4m  |  Tk 2
+ 42%  12:56 PM  |  Tk --
+ 43%  12:10PM
+ 45%  1:26 PM  |  Tk --
+ 46%  in 45:51
+ 51%  • DELAYED 6M  |  Tk 2  |  Updated 11:24 AM
+ 57%  LIVE ACTIVITY
+ 62%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP 6m late  |  DROP-OFF 2m late  |  TRACK
+ 67%  12:10 PM  |  12:45 PM  |  2
+ 69%  in 46 minutes  |  in 1 hour
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:24 AM • Past Lincoln Park • next Mountain View
+===== 13-live-activity.png =====
+  4%  9:41  |  •1l5
+ 10%  GLASS RAIL WIDGETS
+ 16%  TO HOBOKEN  |  Watchung → Hoboken
+ 18%  11:35 AM • Tk 2
+ 20%  Leaves in 9:54
+ 22%  11:35AM
+ 25%  in 9:54
+ 26%  11:35 AM • Tk 2
+ 30%  #1078  |  Tk 2
+ 37%  TO HOBOKEN  |  LATER THIS WAY
+ 39%  12:05 PM  |  Tk --
+ 42%  12:35 PM  |  Tk --
+ 43%  11:35AM
+ 46%  in 9:54
+ 51%  #1078  |  Tk 2  |  Updated 11:25 AM
+ 57%  LIVE ACTIVITY
+ 62%  Train 1074 • Watchung Ave → Hoboken
+ 65%  PICKUP  |  DROP-OFF  |  TRACK
+ 67%  11:13 AM  |  11:52 AM  |  2
+ 69%  12 minutes ago  |  in 27 minutes
+ 72%  WATCHUNG AVE  |  HOBOKEN
+ 74%  Updated 11:25 AM • Past Bay Street • next Glen Ridge
