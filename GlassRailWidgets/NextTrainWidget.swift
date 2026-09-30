@@ -93,8 +93,9 @@ enum WidgetData {
         var themeId: String?
     }
 
-    /// Saved data is still better than a sample within this window.
-    static let fallbackWindow: TimeInterval = 6 * 3600
+    /// Saved data is still better than a sample within this window; past it, a
+    /// timetable an hour old is more misleading than useful.
+    static let fallbackWindow: TimeInterval = 3600
 
     static func load(now: Date) async -> Loaded {
         let store = SharedStore(appGroup: SharedStore.appGroup())

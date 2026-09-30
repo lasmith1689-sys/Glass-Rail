@@ -104,7 +104,11 @@ struct SmallTrainWidget: View {
                     .foregroundStyle(theme.ink.opacity(0.7))
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                if snapshot.isSample { SampleMark() }
+                if snapshot.isSample {
+                    SampleMark()
+                } else if snapshot.feedMode == .stale, let updated = snapshot.updatedAt {
+                    StaleMark(updated: updated)
+                }
             }
             Spacer(minLength: 4)
             if let train = snapshot.next {
@@ -335,5 +339,23 @@ extension WidgetSnapshot {
             at: now,
             modeOverride: ModeOverride(mode: .am, at: now)
         )
+    }
+}
+
+/// Old data on a small widget: when the trains were last fetched, so a stale
+/// board never passes for a live one.
+struct StaleMark: View {
+    let updated: Date
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "clock.arrow.circlepath")
+            Text(Format.time(updated))
+        }
+        .font(.system(size: 9, weight: .semibold).monospacedDigit())
+        .foregroundStyle(theme.lateText)
+        .lineLimit(1)
+        .accessibilityLabel("Last updated \(Format.time(updated))")
     }
 }

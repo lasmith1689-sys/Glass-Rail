@@ -204,6 +204,42 @@ font_check() {
   fi
 }
 
+# Every new theme must actually draw its own backdrop, not Glass's: compare the left gutter beside
+# the cards, in two bands (upper and lower, where the themes' glows sit), with the same scenario in
+# the default theme. The drifting lights move a little between runs, so the bar is generous.
+distinct_check() {
+  local name upper lower g_upper g_lower d1 d2 d
+  g_upper=$(run_limited 30 "$PIXELS" "$OUT/02-delayed.png" 0 0.25 0.025 0.45)
+  g_lower=$(run_limited 30 "$PIXELS" "$OUT/02-delayed.png" 0 0.72 0.025 0.95)
+  for name in 12b-theme-platform 12c-theme-ember 12d-theme-navy 12e-theme-station; do
+    upper=$(run_limited 30 "$PIXELS" "$OUT/$name.png" 0 0.25 0.025 0.45)
+    lower=$(run_limited 30 "$PIXELS" "$OUT/$name.png" 0 0.72 0.025 0.95)
+    d1=$(rgb_distance "$upper" "$g_upper")
+    d2=$(rgb_distance "$lower" "$g_lower")
+    if [ -z "$d1" ] || [ -z "$d2" ]; then
+      echo "::error title=Smoke test: $name::Could not read the backdrop colour ('$upper' '$lower')"
+      failures=$((failures + 1))
+      continue
+    fi
+    d=$(( d1 > d2 ? d1 : d2 ))
+    if [ "$d" -lt 60 ]; then
+      echo "::error title=Smoke test: $name::The backdrop looks like Glass's (colour distance $d, needs 60): upper rgb($upper), lower rgb($lower)."
+      failures=$((failures + 1))
+    else
+      echo "::notice title=Theme $name::Backdrop differs from Glass by $d (upper rgb($upper), lower rgb($lower))."
+    fi
+  done
+}
+
+# rgb_distance "r g b" "r g b": sum of absolute channel differences, empty if either is unreadable.
+rgb_distance() {
+  local r1 g1 b1 r2 g2 b2
+  read -r r1 g1 b1 <<< "$1"
+  read -r r2 g2 b2 <<< "$2"
+  [ -n "${b1:-}" ] && [ -n "${b2:-}" ] || return 0
+  echo $(( (r1 > r2 ? r1 - r2 : r2 - r1) + (g1 > g2 ? g1 - g2 : g2 - g1) + (b1 > b2 ? b1 - b2 : b2 - b1) ))
+}
+
 theme_check() {
   local midnight glass mr mg mb gr gg gb
   midnight=$(run_limited 30 "$PIXELS" "$OUT/12-theme-midnight.png" 0 0.2 0.025 0.8)
@@ -253,7 +289,11 @@ capture 12c-theme-ember 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme ember
 capture 12d-theme-navy 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme navy
 capture 12e-theme-station 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme station
 capture 12f-station-widgets 6 'LATER THIS WAY' -GlassRailDemo delayed -GlassRailTheme station -GlassRailWidgetGallery YES
+capture 12g-platform-widgets 6 'LATER THIS WAY' -GlassRailDemo delayed -GlassRailTheme platform -GlassRailWidgetGallery YES
+capture 12h-ember-widgets 6 'LATER THIS WAY' -GlassRailDemo delayed -GlassRailTheme ember -GlassRailWidgetGallery YES
+capture 12i-navy-widgets 6 'LATER THIS WAY' -GlassRailDemo delayed -GlassRailTheme navy -GlassRailWidgetGallery YES
 font_check
+distinct_check
 # The Live Activity's Lock Screen layout mid-ride: the pickup is in the past, the drop-off ahead,
 # both drawn by relative-time text the system keeps current.
 capture 13-live-activity 8 'LIVE ACTIVITY && DROP-OFF && ago && in [0-9]+ min' -GlassRailDemo riding -GlassRailWidgetGallery YES

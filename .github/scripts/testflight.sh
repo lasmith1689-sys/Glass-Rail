@@ -71,6 +71,28 @@ if ! plutil -extract UISupportedInterfaceOrientations json -o - "$app/Info.plist
   echo "::error::Info.plist has no UISupportedInterfaceOrientations, which App Store Connect rejects."
   exit 1
 fi
+# Theme fonts: every face a bundle lists in UIAppFonts must be inside that bundle, in the app AND the
+# widget extension (a missing file falls back to the system font without any error).
+for bundle in "$app" "$widget"; do
+  fonts=$(plutil -extract UIAppFonts json -o - "$bundle/Info.plist" 2>/dev/null | tr -d '[]"' | tr ',' ' ')
+  if [ -z "$fonts" ]; then
+    echo "::error::${bundle##*/} lists no UIAppFonts, so the Station theme's Oswald would not load there."
+    exit 1
+  fi
+  for font in $fonts; do
+    if [ ! -f "$bundle/$font" ]; then
+      echo "::error::${bundle##*/} lists $font in UIAppFonts but the file is not in the bundle."
+      exit 1
+    fi
+  done
+  echo "::notice title=Fonts::${bundle##*/} carries $(echo $fonts | wc -w | tr -d ' ') theme faces."
+done
+# App Store Connect rejects an app icon with an alpha channel.
+icon="GlassRail/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+if [ -f "$icon" ] && sips -g hasAlpha "$icon" 2>/dev/null | grep -q "hasAlpha: yes"; then
+  echo "::error file=$icon::The app icon has an alpha channel; App Store Connect rejects it."
+  exit 1
+fi
 plutil -p "$app/Info.plist" | grep -E '"CFBundleIdentifier"|"CFBundleDisplayName"|"CFBundleShortVersionString"|"CFBundleVersion"|ITSAppUsesNonExemptEncryption|"MinimumOSVersion"' || true
 plutil -p "$widget/Info.plist" | grep -E '"CFBundleIdentifier"|NSExtensionPointIdentifier' || true
 

@@ -57,7 +57,9 @@ adds the next three trains. Its timeline carries an entry for each upcoming depa
 2 PM switch, and asks for a fresh one every 5 to 10 minutes (iOS decides how often it actually
 reloads). The inline Lock Screen line keeps to the time plus one thing: the track, the delay
 ("+6m") or "Cancelled". Tapping it opens the app. The destination and look come from the app
-through the App Group `group.com.lasmith1689.GlassRail`.
+through the App Group `group.com.lasmith1689.GlassRail`. When its own lookup fails it falls back to
+the app's saved trains for up to an hour (then the sample); the small size marks old data with the
+time it was fetched, in amber.
 
 ## Live Activity
 
@@ -104,7 +106,9 @@ turns `STALE` on its own clock: switch to it and the header says how old its tra
 ago", `STALE` after 3.5 minutes), and the app refreshes right away. The widget ("Updated 1:58 PM" on
 the medium size) and the Live Activity ("Updated") show that same per-direction time, never the time
 of a refresh that didn't reach them. A direction with nothing to carry over reads "Trains this way
-didn't load" (the widget: "Not loaded"), never "No trains".
+didn't load" (the widget: "Not loaded"), never "No trains". "No trains" also needs fresh data:
+once a direction is `STALE`, an empty board says "No more trains this way / Pull down to refresh"
+instead of claiming NJ Transit isn't running, and offers no Bay Street times.
 
 NJ Transit's planner does not answer "no trains" with an empty list. Asked about Watchung Avenue on a
 Saturday, it replies HTTP 200 with a GraphQL error, "We're sorry. We were unable to find trips

@@ -217,8 +217,10 @@ public enum BoardEngine {
 
         // When the rider's own station has no service at all, an empty board
         // is truthful but useless: find the nearest station that has trains.
-        // A direction NJ Transit never answered has unknown trains, not none.
-        let noService = direction.isEmpty && payload.source.kind == .live && dataUpdatedAt != nil
+        // A direction NJ Transit never answered has unknown trains, not none,
+        // and old data whose trains have all left says nothing about now: only
+        // a fresh answer can say there is no service.
+        let noService = direction.isEmpty && payload.source.kind == .live && dataUpdatedAt != nil && feedMode == .live
         var alternate: Alternate?
         if noService {
             for route in Alternates.alternateRoutes(

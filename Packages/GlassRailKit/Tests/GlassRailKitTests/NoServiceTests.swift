@@ -231,4 +231,33 @@ final class NoServiceTests: XCTestCase {
             XCTAssertEqual(error as? NJTError, .missingData)
         }
     }
+
+    func testAnEmptyAnswerOrANullScheduleWithoutAnErrorIsStillAFailure() async {
+        for body in [#"{"data":{}}"#, #"{"data":{"getTripPlannerSchedule":null}}"#, #"{"data":{"getTripPlannerSchedule":"none"}}"#] {
+            let fake = FakeNJT { _, _ in FakeNJT.ok(body) }
+            await expectFailure({
+                _ = try await client(fake, at: saturday).fetchTripPlanner(origin: "Watchung Avenue Station", destination: "Hoboken Terminal", at: saturday)
+            }) { error in
+                XCTAssertEqual(error as? NJTError, .missingData, body)
+            }
+        }
+    }
+
+    /// Only a fresh answer can say there is no service. When the rider's data
+    /// has gone stale (refreshes failing), an empty board means "we don't know",
+    /// so it must not claim NJ Transit isn't running or offer hours-old Bay
+    /// Street trains.
+    func testStaleDataIsNeverReadAsNoService() async throws {
+        let payload = try await client(saturdayFeed(), at: saturday).fetchLivePayload()
+        let fresh = BoardEngine.compute(BoardInputs(payload: payload, now: saturday, destinationId: "hoboken"))
+        XCTAssertTrue(fresh.noService)
+        let failing = BoardEngine.compute(BoardInputs(payload: payload, now: saturday, destinationId: "hoboken", fetchFailures: 2))
+        XCTAssertEqual(failing.feedMode, .stale)
+        XCTAssertFalse(failing.noService)
+        XCTAssertNil(failing.alternate)
+        let later = BoardEngine.compute(BoardInputs(payload: payload, now: saturday.addingTimeInterval(3 * 3600), destinationId: "hoboken"))
+        XCTAssertEqual(later.feedMode, .stale)
+        XCTAssertFalse(later.noService)
+        XCTAssertNil(later.alternate)
+    }
 }

@@ -116,7 +116,10 @@ public struct NJTClient: Sendable {
         ])
         if NJTParse.isNoTripsReply(payload) { return [] }
         let data = try Self.data(of: payload)
-        return data["getTripPlannerSchedule"]?.arrayValue ?? []
+        // "No trips" only ever comes as the error reply above; a schedule that is
+        // missing or not a list is a broken answer, not an empty one.
+        guard let itineraries = data["getTripPlannerSchedule"]?.arrayValue else { throw NJTError.missingData }
+        return itineraries
     }
 
     /// Planner lookups spread over the next few hours (four for the app, see

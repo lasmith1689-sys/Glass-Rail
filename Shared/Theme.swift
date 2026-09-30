@@ -294,8 +294,8 @@ struct Theme: Identifiable, Equatable {
         baseStart: .top,
         baseEnd: .bottom,
         glows: [
-            Glow(center: UnitPoint(x: 0.04, y: 0.80), color: Color(r: 255, g: 176, b: 96, a: 0.62), reach: 0.40),
-            Glow(center: UnitPoint(x: 0.94, y: 0.74), color: Color(r: 255, g: 206, b: 140, a: 0.52), reach: 0.36),
+            Glow(center: UnitPoint(x: 0.04, y: 0.80), color: Color(r: 255, g: 176, b: 96, a: 0.46), reach: 0.40),
+            Glow(center: UnitPoint(x: 0.94, y: 0.74), color: Color(r: 255, g: 206, b: 140, a: 0.38), reach: 0.36),
             Glow(center: UnitPoint(x: 0.50, y: 0.30), color: Color(r: 170, g: 205, b: 255, a: 0.40), reach: 0.24),
             Glow(center: UnitPoint(x: 0.16, y: 0.12), color: Color(r: 120, g: 150, b: 255, a: 0.28), reach: 0.22),
         ],
@@ -316,8 +316,8 @@ struct Theme: Identifiable, Equatable {
         glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.09), Color(r: 255, g: 255, b: 255, a: 0.02)],
         solidPanel: Color(hex: 0x1A2548),
         orbs: [
-            Orb(center: UnitPoint(x: 0.10, y: 0.78), color: Color(r: 255, g: 176, b: 96, a: 0.46), size: 0.80, drift: CGSize(width: 30, height: -24)),
-            Orb(center: UnitPoint(x: 0.90, y: 0.70), color: Color(r: 255, g: 206, b: 140, a: 0.40), size: 0.70, drift: CGSize(width: -28, height: 22)),
+            Orb(center: UnitPoint(x: 0.10, y: 0.78), color: Color(r: 255, g: 176, b: 96, a: 0.34), size: 0.80, drift: CGSize(width: 30, height: -24)),
+            Orb(center: UnitPoint(x: 0.90, y: 0.70), color: Color(r: 255, g: 206, b: 140, a: 0.30), size: 0.70, drift: CGSize(width: -28, height: 22)),
             Orb(center: UnitPoint(x: 0.50, y: 0.30), color: Color(r: 170, g: 205, b: 255, a: 0.30), size: 0.45, drift: CGSize(width: 0, height: 18)),
         ],
         rails: .perspective
