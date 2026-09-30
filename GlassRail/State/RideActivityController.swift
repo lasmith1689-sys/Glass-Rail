@@ -123,23 +123,28 @@ final class RideActivityController {
             application.endBackgroundTask(taskId)
             taskId = .invalid
         }
-        let jobs: [(Activity<RideActivityAttributes>, ActivityContent<RideActivityAttributes.ContentState>, ActivityUIDismissalPolicy)] = running.map { activity in
+        let jobs: [(Activity<RideActivityAttributes>, ActivityContent<RideActivityAttributes.ContentState>, ActivityUIDismissalPolicy, String)] = running.map { activity in
             let state = activity.content.state
             let plan = state.plan
             let policy: ActivityUIDismissalPolicy
+            let how: String
             switch plan.dismissal(now: now) {
             case .immediate:
                 policy = .immediate
-                Self.log.notice("Live Activity ended on suspend: \(activity.attributes.key, privacy: .public), ride over, dismissed now")
+                how = "ride over, dismissed now"
             case .after(let date):
                 policy = .after(date)
-                Self.log.notice("Live Activity ended on suspend: \(activity.attributes.key, privacy: .public), dismissal at \(ISOTime.string(from: date), privacy: .public)")
+                how = "dismissal at \(ISOTime.string(from: date))"
             }
-            return (activity, ActivityContent(state: state, staleDate: plan.endsAt), policy)
+            return (activity, ActivityContent(state: state, staleDate: plan.endsAt), policy, how)
         }
         Task {
-            for (activity, content, policy) in jobs {
+            for (activity, content, policy, how) in jobs {
                 await activity.end(content, dismissalPolicy: policy)
+                // Logged once ActivityKit has returned, with the state it left
+                // the activity in (CI's smoke test checks this line).
+                let result = Self.describe(activity.activityState)
+                Self.log.notice("Live Activity ended on suspend: \(activity.attributes.key, privacy: .public), \(how, privacy: .public), state \(result, privacy: .public)")
             }
             if taskId != .invalid {
                 application.endBackgroundTask(taskId)
@@ -156,8 +161,21 @@ final class RideActivityController {
     }
 
     private func end(_ activity: Activity<RideActivityAttributes>, reason: String) {
-        Self.log.notice("Live Activity ended: \(activity.attributes.key, privacy: .public) (\(reason, privacy: .public))")
-        Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        Task {
+            await activity.end(nil, dismissalPolicy: .immediate)
+            let result = Self.describe(activity.activityState)
+            Self.log.notice("Live Activity ended: \(activity.attributes.key, privacy: .public) (\(reason, privacy: .public)), state \(result, privacy: .public)")
+        }
+    }
+
+    nonisolated private static func describe(_ state: ActivityState) -> String {
+        switch state {
+        case .active: return "active"
+        case .ended: return "ended"
+        case .dismissed: return "dismissed"
+        case .stale: return "stale"
+        @unknown default: return "unknown"
+        }
     }
 
     private func forget() {

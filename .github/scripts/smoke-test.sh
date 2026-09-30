@@ -40,13 +40,17 @@ run_limited() {
   wait "$pid"
 }
 
-# The OCR reader, compiled once (running it as a script costs ~10 s per call).
-OCR="$(mktemp -d)/ocr"
-if ! xcrun swiftc -O -o "$OCR" "$SCRIPT_DIR/ocr.swift" 2>ocr-build.log; then
-  cat ocr-build.log
-  echo "::error title=Smoke test::Could not build the OCR reader, so screens can't be checked"
-  exit 1
-fi
+# The OCR and pixel readers, compiled once (running them as scripts costs ~10 s per call).
+TOOLS="$(mktemp -d)"
+OCR="$TOOLS/ocr"
+PIXELS="$TOOLS/pixels"
+for tool in ocr pixels; do
+  if ! xcrun swiftc -O -o "$TOOLS/$tool" "$SCRIPT_DIR/$tool.swift" 2>tool-build.log; then
+    cat tool-build.log
+    echo "::error title=Smoke test::Could not build the $tool reader, so screens can't be checked"
+    exit 1
+  fi
+done
 mark "ocr built"
 
 run_limited 120 xcrun simctl boot "$UDID" 2>/dev/null || true
@@ -124,7 +128,9 @@ activity_log() {
 
 # The riding scenario pins a ride, which starts a Live Activity. Going to the background must end
 # it with a dismissal date (so it leaves the Lock Screen after the ride without the app), and
-# coming back must replace it with a live one.
+# coming back must replace it with a live one. The app logs each end only after ActivityKit's
+# end call has returned, with the activity's resulting state, so these checks see what the
+# system did, not what the app meant to do.
 lifecycle_check() {
   local log after
   log=$(activity_log 3m)
@@ -132,7 +138,8 @@ lifecycle_check() {
   echo "$log"
   echo "::endgroup::"
   if [[ "$log" != *"Live Activity started"* ]]; then
-    echo "::warning title=Live Activity::The Simulator did not start a Live Activity (log above), so its lifecycle was not checked here."
+    echo "::error title=Live Activity::Pinning a ride did not start a Live Activity (log above: $(printf '%s' "$log" | tail -3 | tr '\n' '/'))."
+    failures=$((failures + 1))
     return
   fi
   run_limited 60 xcrun simctl launch "$UDID" com.apple.Preferences >/dev/null 2>&1
@@ -144,10 +151,10 @@ lifecycle_check() {
   log=$(activity_log 2m)
   local ended
   ended=$(printf '%s\n' "$log" | grep "ended on suspend" | tail -1)
-  if [ -n "$ended" ] && [[ "$ended" == *"dismissal at"* ]]; then
+  if [ -n "$ended" ] && [[ "$ended" == *"dismissal at"* ]] && [[ "$ended" == *"state ended"* ]]; then
     echo "::notice title=Live Activity::Backgrounded: ${ended#*Live Activity }"
   else
-    echo "::error title=Live Activity::Going to the background did not end the activity with a dismissal date. Log: $(printf '%s' "$log" | tail -5 | tr '\n' '/')"
+    echo "::error title=Live Activity::Going to the background did not end the activity with a dismissal date (expected 'ended on suspend ... dismissal at ... state ended' after the end call returned). Log: $(printf '%s' "$log" | tail -5 | tr '\n' '/')"
     failures=$((failures + 1))
     return
   fi
@@ -162,19 +169,47 @@ lifecycle_check() {
   echo "::group::Live Activity log after returning to the app"
   echo "$after"
   echo "::endgroup::"
-  if [[ "$after" == *"Live Activity started"* ]]; then
-    local how="same process, pid ${back##*: }"
-    [ "${back##*: }" = "$riding_pid" ] || how="relaunched: pid $riding_pid then ${back##*: }"
-    echo "::notice title=Live Activity::Back in the foreground ($how): a live activity replaced the ended one. Log since: $(printf '%s\n' "$after" | sed -E 's/^.*(Live Activit)/\1/' | tr '\n' '/' | cut -c1-900)"
+  local how="same process, pid ${back##*: }"
+  [ "${back##*: }" = "$riding_pid" ] || how="relaunched: pid $riding_pid then ${back##*: }"
+  local since
+  since=$(printf '%s\n' "$after" | sed -E 's/^.*(Live Activit)/\1/' | tr '\n' '/' | cut -c1-900)
+  if [[ "$after" != *"Live Activity started"* ]]; then
+    echo "::error title=Live Activity::Returning to the app ($how) did not start a live activity again. Log since: $since"
+    failures=$((failures + 1))
+  elif ! printf '%s\n' "$after" | grep -Eq '\(replaced by a live activity\), state (ended|dismissed)'; then
+    # The ended copy stays listed until it is dismissed, so it must be ended for good to make way.
+    echo "::error title=Live Activity::Back in the foreground ($how) the ended activity was not removed in favour of the live one (no 'replaced by a live activity' after the end call returned). Log since: $since"
+    failures=$((failures + 1))
   else
-    echo "::error title=Live Activity::Returning to the app did not start a live activity again."
+    echo "::notice title=Live Activity::Back in the foreground ($how): a live activity replaced the ended one. Log since: $since"
+  fi
+}
+
+# Every theme draws the same text, so OCR can't tell them apart. This reads colour instead: the
+# backdrop in the left gutter beside the cards. Midnight's is near-black (tokens 0A0C14 to 02030A
+# with faint glows); the default Glass backdrop there is deep blue under bright glows. The same
+# scenario in the default theme (02-delayed) is measured alongside, so the check proves the theme
+# argument changed the look rather than just that the screen is dark.
+theme_check() {
+  local midnight glass mr mg mb gr gg gb
+  midnight=$(run_limited 30 "$PIXELS" "$OUT/12-theme-midnight.png" 0 0.2 0.025 0.8)
+  glass=$(run_limited 30 "$PIXELS" "$OUT/02-delayed.png" 0 0.2 0.025 0.8)
+  read -r mr mg mb <<< "$midnight"
+  read -r gr gg gb <<< "$glass"
+  if [ -z "${mb:-}" ] || [ -z "${gb:-}" ]; then
+    echo "::error title=Smoke test: 12-theme-midnight::Could not read the backdrop colour (Midnight '$midnight', Glass '$glass')"
+    failures=$((failures + 1))
+  elif [ "$mb" -le 65 ] && [ $((mb * 10)) -le $((gb * 7)) ]; then
+    echo "::notice title=Theme::Midnight backdrop rgb($mr, $mg, $mb) against Glass rgb($gr, $gg, $gb) in the same scenario."
+  else
+    echo "::error title=Smoke test: 12-theme-midnight::The Midnight theme did not draw its near-black backdrop: rgb($mr, $mg, $mb), Glass in the same scenario rgb($gr, $gg, $gb) (needs blue at most 65 and at most 70% of Glass)."
     failures=$((failures + 1))
   fi
 }
 
-# 1. Live NJ Transit data from the runner (or the labeled fallback if the feed can't be reached).
-#    Must still be running after 15+ seconds.
-capture 01-live 20 'LIVE|STALE|SAMPLE && YOUR RIDE'
+# 1. Live NJ Transit data from the runner. SAMPLE means the app never got a live answer (or
+#    counted every refresh as failed), so it fails this screen. Must still be running after 15+ s.
+capture 01-live 20 '(^|[^a-z])(LIVE|STALE)([^a-z]|$) && YOUR RIDE && !(^|[^a-z])SAMPLE([^a-z]|$)'
 sleep 5
 if alive; then echo "Glass Rail still running 25 s after a live launch"; else
   echo "::error title=Smoke test::Glass Rail stopped running after the live launch"; failures=$((failures + 1)); fi
@@ -196,6 +231,7 @@ capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 'Choose a look' -GlassRailSheet settings
 capture 11-widgets 6 'LATER THIS WAY && LIVE ACTIVITY && DROP-OFF' -GlassRailDemo delayed -GlassRailWidgetGallery YES
 capture 12-theme-midnight 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme midnight
+theme_check
 # The Live Activity's Lock Screen layout mid-ride: the pickup is in the past, the drop-off ahead,
 # both drawn by relative-time text the system keeps current.
 capture 13-live-activity 8 'LIVE ACTIVITY && DROP-OFF && ago && in [0-9]+ min' -GlassRailDemo riding -GlassRailWidgetGallery YES

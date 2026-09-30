@@ -131,9 +131,14 @@ GitHub Actions is the only build machine. Every push runs CI (`.github/workflows
 2. A Simulator build of the app and widget, then a smoke test that launches it with live data and
    with each QA scenario, screenshots each screen and reads the text back. Every screen must show
    "Glass Rail" and its scenario's own text (`DELAYED`, `TRACK CHANGED`, `STALE`, `SAMPLE` with no
-   delay or on-time claim, and so on), with a few more looks for a slow runner, or the job fails. In
-   the riding scenario it also checks that leaving the app ends the Live Activity with a dismissal
-   time and that coming back starts a live one again.
+   delay or on-time claim, and so on), with a few more looks for a slow runner, or the job fails.
+   The live launch must read `LIVE` or `STALE`, never `SAMPLE` (which would mean no refresh ever
+   succeeded). In the riding scenario the Live Activity must start; leaving the app must end it with
+   a dismissal time, logged only after ActivityKit's end call returned and with the activity then
+   in its ended state; and coming back must end that copy and start a live one. Every theme draws
+   the same words, so OCR can't tell Midnight from Glass: the Midnight screen is checked by colour
+   instead (the backdrop beside the cards must be near-black, and clearly darker and less blue than
+   the default theme's in the same scenario).
 3. An App Store archive dry run that checks both bundles carry the App Group, then stops with
    "Nothing was uploaded".
 4. An informational live probe of NJ Transit's feed from the runner. It also asks the planner about
