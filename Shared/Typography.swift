@@ -20,8 +20,7 @@ struct ScaledFont: ViewModifier {
         let points = min(scaled, size * maxScale)
         // A theme with its own typeface (Station's Oswald) uses the bundled face for
         // the weight; the size is already scaled for Dynamic Type above.
-        let font = theme.fontFamily.map { Font.custom($0.faceName(weight), fixedSize: points) }
-            ?? Font.system(size: points, weight: weight)
+        let font = theme.font(size: points, weight: weight)
         return content.font(digits ? font.monospacedDigit() : font)
     }
 
@@ -100,5 +99,13 @@ enum ThemeFonts {
         } else {
             log.error("Theme fonts missing: \(missing.joined(separator: ", "), privacy: .public)")
         }
+    }
+}
+
+extension Theme {
+    /// A font at a fixed size in this theme's face (widgets, and ScaledFont after Dynamic Type).
+    func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        guard let family = fontFamily else { return .system(size: size, weight: weight) }
+        return .custom(family.faceName(weight), fixedSize: size * family.sizeScale)
     }
 }

@@ -84,6 +84,10 @@ struct Theme: Identifiable, Equatable {
             }
         }
 
+        /// Oswald is tall and condensed: at the same point size it sets taller lines than SF, so
+        /// it runs a touch smaller to keep the board's layout where it is.
+        var sizeScale: CGFloat { 0.9 }
+
         static let allFaces = ["Oswald-Light", "Oswald-Regular", "Oswald-Medium", "Oswald-SemiBold", "Oswald-Bold"]
     }
 
@@ -284,16 +288,16 @@ struct Theme: Identifiable, Equatable {
         ink: Color(hex: 0xF5F7FB),
         scheme: .dark,
         base: [
-            .init(color: Color(hex: 0x0B1636), location: 0), .init(color: Color(hex: 0x16295F), location: 0.46),
-            .init(color: Color(hex: 0x22336B), location: 0.64), .init(color: Color(hex: 0x0C1128), location: 1),
+            .init(color: Color(hex: 0x0B1636), location: 0), .init(color: Color(hex: 0x16295F), location: 0.42),
+            .init(color: Color(hex: 0x2A2D57), location: 0.66), .init(color: Color(hex: 0x2A1C22), location: 1),
         ],
         baseStart: .top,
         baseEnd: .bottom,
         glows: [
-            Glow(center: UnitPoint(x: 0.04, y: 0.62), color: Color(r: 255, g: 186, b: 110, a: 0.50), reach: 0.36),
-            Glow(center: UnitPoint(x: 0.92, y: 0.58), color: Color(r: 255, g: 210, b: 150, a: 0.42), reach: 0.34),
-            Glow(center: UnitPoint(x: 0.50, y: 0.36), color: Color(r: 170, g: 205, b: 255, a: 0.45), reach: 0.22),
-            Glow(center: UnitPoint(x: 0.16, y: 0.18), color: Color(r: 120, g: 150, b: 255, a: 0.30), reach: 0.22),
+            Glow(center: UnitPoint(x: 0.04, y: 0.80), color: Color(r: 255, g: 176, b: 96, a: 0.62), reach: 0.40),
+            Glow(center: UnitPoint(x: 0.94, y: 0.74), color: Color(r: 255, g: 206, b: 140, a: 0.52), reach: 0.36),
+            Glow(center: UnitPoint(x: 0.50, y: 0.30), color: Color(r: 170, g: 205, b: 255, a: 0.40), reach: 0.24),
+            Glow(center: UnitPoint(x: 0.16, y: 0.12), color: Color(r: 120, g: 150, b: 255, a: 0.28), reach: 0.22),
         ],
         cardTop: Color(r: 255, g: 255, b: 255, a: 0.24),
         cardBottom: Color(r: 255, g: 255, b: 255, a: 0.08),
@@ -312,9 +316,9 @@ struct Theme: Identifiable, Equatable {
         glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.09), Color(r: 255, g: 255, b: 255, a: 0.02)],
         solidPanel: Color(hex: 0x1A2548),
         orbs: [
-            Orb(center: UnitPoint(x: 0.08, y: 0.56), color: Color(r: 255, g: 186, b: 110, a: 0.42), size: 0.75, drift: CGSize(width: 30, height: -24)),
-            Orb(center: UnitPoint(x: 0.90, y: 0.52), color: Color(r: 255, g: 210, b: 150, a: 0.36), size: 0.70, drift: CGSize(width: -28, height: 22)),
-            Orb(center: UnitPoint(x: 0.50, y: 0.34), color: Color(r: 170, g: 205, b: 255, a: 0.34), size: 0.45, drift: CGSize(width: 0, height: 18)),
+            Orb(center: UnitPoint(x: 0.10, y: 0.78), color: Color(r: 255, g: 176, b: 96, a: 0.46), size: 0.80, drift: CGSize(width: 30, height: -24)),
+            Orb(center: UnitPoint(x: 0.90, y: 0.70), color: Color(r: 255, g: 206, b: 140, a: 0.40), size: 0.70, drift: CGSize(width: -28, height: 22)),
+            Orb(center: UnitPoint(x: 0.50, y: 0.30), color: Color(r: 170, g: 205, b: 255, a: 0.30), size: 0.45, drift: CGSize(width: 0, height: 18)),
         ],
         rails: .perspective
     )
@@ -361,12 +365,13 @@ struct Theme: Identifiable, Equatable {
         tagline: "Deep blue, gold light",
         ink: Color(hex: 0xF5F7FB),
         scheme: .dark,
-        base: [.init(color: Color(hex: 0x0D1733), location: 0), .init(color: Color(hex: 0x0A1127), location: 0.5), .init(color: Color(hex: 0x070B18), location: 1)],
+        base: [.init(color: Color(hex: 0x09112B), location: 0), .init(color: Color(hex: 0x060C20), location: 0.5), .init(color: Color(hex: 0x03050E), location: 1)],
         baseStart: deg165.0,
         baseEnd: deg165.1,
         glows: [
-            Glow(center: UnitPoint(x: 0.86, y: 0.18), color: Color(r: 126, g: 170, b: 255, a: 0.32), reach: 0.42),
-            Glow(center: UnitPoint(x: 0.06, y: 0.86), color: Color(r: 221, g: 178, b: 124, a: 0.28), reach: 0.42),
+            Glow(center: UnitPoint(x: 0.90, y: 0.10), color: Color(r: 110, g: 150, b: 255, a: 0.26), reach: 0.36),
+            Glow(center: UnitPoint(x: 0.08, y: 0.90), color: Color(r: 232, g: 182, b: 110, a: 0.42), reach: 0.52),
+            Glow(center: UnitPoint(x: 0.95, y: 0.62), color: Color(r: 232, g: 182, b: 110, a: 0.16), reach: 0.30),
         ],
         cardTop: Color(r: 255, g: 255, b: 255, a: 0.22),
         cardBottom: Color(r: 255, g: 255, b: 255, a: 0.07),
@@ -381,12 +386,12 @@ struct Theme: Identifiable, Equatable {
         routeGlow: Color(r: 200, g: 220, b: 255, a: 0.55),
         lateText: Color(hex: 0xFBBF24),
         seeThrough: true,
-        glassTint: Color(r: 100, g: 130, b: 220, a: 0.10),
+        glassTint: Color(r: 40, g: 70, b: 170, a: 0.20),
         glassSheen: [Color(r: 255, g: 255, b: 255, a: 0.08), Color(r: 255, g: 255, b: 255, a: 0.02)],
         solidPanel: Color(hex: 0x141D3A),
         orbs: [
-            Orb(center: UnitPoint(x: 0.84, y: 0.20), color: Color(r: 126, g: 170, b: 255, a: 0.34), size: 0.85, drift: CGSize(width: -30, height: 26)),
-            Orb(center: UnitPoint(x: 0.10, y: 0.84), color: Color(r: 221, g: 178, b: 124, a: 0.30), size: 0.85, drift: CGSize(width: 32, height: -30)),
+            Orb(center: UnitPoint(x: 0.86, y: 0.14), color: Color(r: 110, g: 150, b: 255, a: 0.26), size: 0.70, drift: CGSize(width: -30, height: 26)),
+            Orb(center: UnitPoint(x: 0.12, y: 0.86), color: Color(r: 232, g: 182, b: 110, a: 0.40), size: 0.95, drift: CGSize(width: 32, height: -30)),
         ]
     )
 
@@ -584,9 +589,11 @@ struct RailLines: View {
     private static func drawPerspective(size: CGSize, color: Color, in context: inout GraphicsContext) {
         let w = size.width
         let h = size.height
-        let vanish = CGPoint(x: 0.5 * w, y: 0.38 * h)
-        let leftFoot = CGPoint(x: 0.30 * w, y: 1.02 * h)
-        let rightFoot = CGPoint(x: 0.70 * w, y: 1.02 * h)
+        // The horizon sits low, in the gap between the train card and "Later this way", so the
+        // headlight shows between the cards and the track fans out under the bottom of the board.
+        let vanish = CGPoint(x: 0.5 * w, y: 0.80 * h)
+        let leftFoot = CGPoint(x: -0.15 * w, y: 1.04 * h)
+        let rightFoot = CGPoint(x: 1.15 * w, y: 1.04 * h)
         func along(_ foot: CGPoint, _ t: CGFloat) -> CGPoint {
             CGPoint(x: foot.x + (vanish.x - foot.x) * t, y: foot.y + (vanish.y - foot.y) * t)
         }
@@ -598,16 +605,16 @@ struct RailLines: View {
             let overhang = (b.x - a.x) * 0.12
             let thickness = max(1, 9 * (1 - t))
             let tie = Path(CGRect(x: a.x - overhang, y: a.y - thickness / 2, width: b.x - a.x + overhang * 2, height: thickness))
-            context.fill(tie, with: .color(color.opacity(0.05)))
+            context.fill(tie, with: .color(color.opacity(0.08)))
         }
         var rails = Path()
         rails.move(to: leftFoot)
         rails.addLine(to: vanish)
         rails.move(to: rightFoot)
         rails.addLine(to: vanish)
-        context.stroke(rails, with: .color(color.opacity(0.12)), lineWidth: 1.8)
-        let glow = Path(ellipseIn: CGRect(x: vanish.x - 14, y: vanish.y - 14, width: 28, height: 28))
-        context.fill(glow, with: .color(Color(r: 255, g: 236, b: 200, a: 0.18)))
+        context.stroke(rails, with: .color(color.opacity(0.20)), lineWidth: 2)
+        let glow = Path(ellipseIn: CGRect(x: vanish.x - 22, y: vanish.y - 22, width: 44, height: 44))
+        context.fill(glow, with: .color(Color(r: 255, g: 236, b: 200, a: 0.22)))
         let lamp = Path(ellipseIn: CGRect(x: vanish.x - 3.5, y: vanish.y - 3.5, width: 7, height: 7))
         context.fill(lamp, with: .color(Color(r: 255, g: 244, b: 220, a: 0.9)))
     }

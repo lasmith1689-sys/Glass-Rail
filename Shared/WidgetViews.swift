@@ -98,7 +98,7 @@ struct SmallTrainWidget: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Text(WidgetText.heading(snapshot))
-                    .font(.system(size: 10, weight: .bold))
+                    .font(theme.font(size: 10, weight: .bold))
                     .tracking(1.2)
                     .textCase(.uppercase)
                     .foregroundStyle(theme.ink.opacity(0.7))
@@ -111,17 +111,17 @@ struct SmallTrainWidget: View {
                 let clock = WidgetText.clock(train.departure)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(clock.time)
-                        .font(.system(size: 36, weight: .semibold).monospacedDigit())
+                        .font(theme.font(size: 36, weight: .semibold).monospacedDigit())
                         .tracking(-1)
                         .widgetAccentable()
                     Text(clock.meridiem)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(theme.font(size: 13, weight: .semibold))
                         .foregroundStyle(theme.ink.opacity(0.75))
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 DepartureCountdown(from: snapshot.date, departure: train.departure, prefix: "in")
-                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    .font(theme.font(size: 15, weight: .semibold).monospacedDigit())
                     .foregroundStyle(theme.ink.opacity(0.9))
                 Spacer(minLength: 4)
                 HStack(spacing: 6) {
@@ -129,12 +129,12 @@ struct SmallTrainWidget: View {
                         WidgetBadge(text: status.text, tone: status.tone)
                     } else {
                         Text(train.trainId.map { "#\($0)" } ?? "")
-                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                            .font(theme.font(size: 11, weight: .semibold).monospacedDigit())
                             .foregroundStyle(theme.ink.opacity(0.7))
                     }
                     Spacer(minLength: 0)
                     Text(WidgetText.track(train))
-                        .font(.system(size: 13, weight: .bold).monospacedDigit())
+                        .font(theme.font(size: 13, weight: .bold).monospacedDigit())
                 }
             } else {
                 NoTrainWidgetText(snapshot: snapshot)
@@ -158,14 +158,14 @@ struct MediumTrainWidget: View {
                 .frame(width: 1)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Later this way")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(theme.font(size: 10, weight: .bold))
                     .tracking(1.2)
                     .textCase(.uppercase)
                     .foregroundStyle(theme.ink.opacity(0.7))
                     .lineLimit(1)
                 if snapshot.later.isEmpty {
                     Text(snapshot.next == nil ? "" : "Nothing later.")
-                        .font(.system(size: 12))
+                        .font(theme.font(size: 12))
                         .foregroundStyle(theme.ink.opacity(0.7))
                 } else {
                     ForEach(Array(snapshot.later.prefix(3).enumerated()), id: \.offset) { _, train in
@@ -174,7 +174,7 @@ struct MediumTrainWidget: View {
                 }
                 Spacer(minLength: 0)
                 Text(snapshot.updatedAt.map { "Updated \(Format.time($0))" } ?? "Not updated")
-                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .font(theme.font(size: 9, weight: .medium).monospacedDigit())
                     .foregroundStyle(theme.ink.opacity(0.55))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -190,18 +190,18 @@ struct LaterWidgetRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(Format.time(train.departure))
-                .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                .font(theme.font(size: 14, weight: .semibold).monospacedDigit())
                 .lineLimit(1)
             if train.cancelled {
                 Circle().fill(Accent.cancel).frame(width: 6, height: 6)
             } else if train.delayed {
                 Text(train.delayMinutes.map { "+\($0)m" } ?? "late")
-                    .font(.system(size: 10, weight: .heavy).monospacedDigit())
+                    .font(theme.font(size: 10, weight: .heavy).monospacedDigit())
                     .foregroundStyle(theme.lateText)
             }
             Spacer(minLength: 0)
             Text(WidgetText.track(train))
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .font(theme.font(size: 11, weight: .semibold).monospacedDigit())
                 .foregroundStyle(theme.ink.opacity(0.8))
         }
     }
@@ -276,16 +276,16 @@ struct NoTrainWidgetText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(WidgetText.noTrain(snapshot, noService: "No trains", noneLeft: "No more trains", unanswered: "Not loaded"))
-                .font(.system(size: 17, weight: .semibold))
+                .font(theme.font(size: 17, weight: .semibold))
             if let alt = snapshot.alternateNext, let from = snapshot.alternateFrom {
                 Text("Nearest: \(from.shortLabel)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(theme.font(size: 11, weight: .medium))
                     .foregroundStyle(theme.ink.opacity(0.75))
                 Text(Format.time(alt.departure))
-                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    .font(theme.font(size: 15, weight: .semibold).monospacedDigit())
             } else {
                 Text("Open Glass Rail for details.")
-                    .font(.system(size: 11))
+                    .font(theme.font(size: 11))
                     .foregroundStyle(theme.ink.opacity(0.75))
             }
         }
