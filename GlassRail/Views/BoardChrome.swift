@@ -101,7 +101,7 @@ struct RouteBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .insetPanel(radius: 24)
+        .glassPanel(radius: 24)
     }
 }
 
@@ -178,7 +178,7 @@ struct LaterTeaser: View {
         .buttonStyle(PressScale())
         .disabled(later.isEmpty)
         .opacity(later.isEmpty ? 0.5 : 1)
-        .insetPanel(radius: 16)
+        .glassPanel(radius: 16)
         .accessibilityHint("Shows later trains; tap one to pin it")
     }
 }

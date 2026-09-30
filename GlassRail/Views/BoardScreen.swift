@@ -12,7 +12,7 @@ struct BoardScreen: View {
     var body: some View {
         @Bindable var model = model
         ZStack {
-            ThemeBackdrop(theme: theme)
+            ThemeBackdrop(theme: theme, lively: true)
                 .ignoresSafeArea()
             VStack(spacing: 0) {
                 HeaderBar(feedMode: model.state?.feedMode, generatedAt: model.payload?.generatedAt, now: model.now)
@@ -113,6 +113,6 @@ private struct LoadingCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .insetPanel(radius: 24)
+        .glassPanel(radius: 24)
     }
 }

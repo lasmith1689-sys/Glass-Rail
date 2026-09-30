@@ -39,7 +39,7 @@ struct HeroCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .insetPanel(radius: 24)
+        .glassPanel(radius: 24)
         .animation(.snappy, value: departedLabel)
     }
 }

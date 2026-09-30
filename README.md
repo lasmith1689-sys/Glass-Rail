@@ -35,7 +35,10 @@ is, and when to say a train has departed.
 - **No service**: when your station has no trains (the Montclair Branch runs none north of Bay Street
   on weekends), it says so and lists the next trains from Bay Street.
 - Refreshes every 60 seconds, on returning to the app, with pull to refresh, and with the Refresh
-  button. Five looks from v4 (Glass, Midnight, Aurora, Sunset, Liquid) in Settings.
+  button. Five looks from v4 (Glass, Midnight, Aurora, Sunset, Liquid) in Settings. Glass (the
+  default) and Liquid are see-through: the cards are real iOS 26 Liquid Glass over a backdrop of
+  slowly drifting light and two faint rail lines, which you see blurred and bent through each card.
+  The drift pauses off screen and with Reduce Motion; with Reduce Transparency the cards go solid.
 
 ## Widgets
 
@@ -154,6 +157,8 @@ launch arguments (used by CI's smoke test):
   itineraries still rank the same).
 - The Liquid theme keeps v4's palette and highlight but not the tilt-to-move effect; the controls use
   iOS 26 Liquid Glass instead.
+- v4's Glass theme laid a milky full-screen card over everything, so nothing showed through. The
+  app's Glass theme drops it: dark midnight backdrop, light text, and see-through glass cards.
 - The widget follows the clock and ignores pins and manual flips.
 - With nothing left to show this way on sample or stale data, the hero says "No more trains this
   way" rather than v4's "No trains from Watchung Ave", which is reserved for live data.
