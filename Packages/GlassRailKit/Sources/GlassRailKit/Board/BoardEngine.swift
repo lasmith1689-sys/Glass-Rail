@@ -121,7 +121,7 @@ public enum BoardEngine {
     /// True pickup and drop-off times for one trip from its live stop list.
     public static func applyTiming(_ view: TripView, runs: Runs, origin: Station, dest: Station) -> TripView {
         let stops = view.trip.trainId.flatMap { runs[$0] }
-        return Timing.withTiming(
+        var timed = Timing.withTiming(
             view,
             Timing.resolveTripTiming(
                 stops: stops,
@@ -132,6 +132,16 @@ public enum BoardEngine {
                 textDelayMinutes: view.delayMinutes
             )
         )
+        // The origin's departure board is the authority on a train it still
+        // lists: a live stop time can't make it leave sooner, unless the stop
+        // list says it has left. On 5 October 6233's stop list put Hoboken at
+        // 10:28 while Hoboken's board still listed it for 10:29, and it
+        // vanished while it was boarding.
+        if let board = Status.boardDeparture(view.trip), board.time > timed.expectedDeparture,
+           stops?.first(where: { Journey.stopMatchesStation($0.name, origin.ref) })?.departed != true {
+            timed.expectedDeparture = board.time
+        }
+        return timed
     }
 
     /// The trains whose stop lists are worth fetching: the pinned train and

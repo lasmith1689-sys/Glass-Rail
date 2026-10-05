@@ -283,8 +283,54 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(compute(feed, now: evening, destination: "penn", runs: yesterday).hero?.cancelled, false)
     }
 
+    func testATrainItsBoardStillListsIsNotGoneBecauseItsStopListSaysSo() {
+        // Hoboken's board still listed 6233 ("All Aboard") while its stop list
+        // put Hoboken a minute earlier: it was boarding, not gone.
+        var boarding = trip("6233", "hoboken", "watchung", at(evening, 0), duration: 41, track: "6")
+        boarding.listedAt = evening
+        boarding.countdownMinutes = 0
+        let runs: Runs = ["6233": [
+            TrainStop(name: "Hoboken", time: at(evening, -1), departed: false, status: nil, note: nil),
+            TrainStop(name: "Watchung Avenue", time: at(evening, 40), departed: false, status: nil, note: nil),
+        ]]
+        let feed = payload([boarding], generatedAt: evening)
+        let state = compute(feed, now: at(evening, 0.5), destination: "hoboken", runs: runs)
+        XCTAssertEqual(state.hero?.trip.trainId, "6233")
+        XCTAssertEqual(state.hero?.expectedDeparture, evening)
+        // Once its stop list says it has left Hoboken, it's gone.
+        var left = runs
+        left["6233"]?[0].departed = true
+        XCTAssertNil(compute(feed, now: at(evening, 0.5), destination: "hoboken", runs: left).hero)
+    }
+
+    func testATrainThatLeavesFromTheOtherTerminalTodayIsCancelledFromThisOne() {
+        // 6237 leaves Penn Station in the timetable; today Hoboken's board has
+        // it, and Penn Station's board says nothing about it.
+        let fromPenn = trip("6237", "penn", "watchung", at(evening, 29), duration: 40)
+        let pair = ODPair(fromId: "penn", toId: "watchung")
+        let boards: [String: [String: BoardEntry]] = [
+            "watchung": ["6237": BoardEntry(track: "1", note: nil, departureRaw: "6:09 PM", status: nil, destination: "MSU")],
+            "hoboken": ["6237": BoardEntry(track: "6", note: nil, departureRaw: "5:28 PM", status: nil, destination: "MSU -SEC")],
+            "penn": ["3837": BoardEntry(track: "9", note: nil, departureRaw: "5:09 PM", status: nil, destination: "Trenton")],
+        ]
+        let moved = BoardTruth.reconcile([fromPenn], pair: pair, boards: boards, fetchedAt: evening).first { $0.trainId == "6237" }
+        XCTAssertEqual(moved?.status, .cancelled)
+        XCTAssertEqual(moved?.statusNote, "Leaves from Hoboken today")
+        // From Hoboken it is the ride home.
+        let fromHoboken = BoardTruth.reconcile([], pair: ODPair(fromId: "hoboken", toId: "watchung"), boards: boards, fetchedAt: evening)
+        XCTAssertEqual(fromHoboken.map(\.trainId), ["6237"])
+        XCTAssertNil(fromHoboken.first?.status)
+        // A train Penn Station's own board lists is left alone.
+        var listed = boards
+        listed["penn"]?["6237"] = BoardEntry(track: "7", note: nil, departureRaw: "5:29 PM", status: nil, destination: "MSU")
+        XCTAssertNil(BoardTruth.reconcile([fromPenn], pair: pair, boards: listed, fetchedAt: evening).first?.status)
+    }
+
     func testLaterListsEveryTrainThisWay() {
-        let many = (0..<15).map { trip(String(2000 + $0), "watchung", "hoboken", at(morning, Double(5 + 10 * $0))) }
+        let many = (0..<15).map { (index: Int) -> Trip in
+            let minutes = Double(5 + 10 * index)
+            return trip(String(2000 + index), "watchung", "hoboken", at(morning, minutes))
+        }
         let state = compute(payload(many))
         XCTAssertEqual(state.hero?.trip.trainId, "2000")
         XCTAssertEqual(state.later.count, 14)

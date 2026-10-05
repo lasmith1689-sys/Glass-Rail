@@ -35,7 +35,7 @@ public enum BoardTruth {
             return fromHome(trips, pair: pair, homeBoard: homeBoard, fetchedAt: fetchedAt)
         }
         if pair.toId == home, let originBoard = boards[pair.fromId], !originBoard.isEmpty {
-            return toHome(trips, pair: pair, homeBoard: homeBoard, originBoard: originBoard, fetchedAt: fetchedAt)
+            return toHome(trips, pair: pair, homeBoard: homeBoard, originBoard: originBoard, boards: boards, fetchedAt: fetchedAt)
         }
         return trips
     }
@@ -91,6 +91,7 @@ public enum BoardTruth {
         pair: ODPair,
         homeBoard: [String: BoardEntry],
         originBoard: [String: BoardEntry],
+        boards: [String: [String: BoardEntry]] = [:],
         fetchedAt: Date
     ) -> [Trip] {
         var result = trips
@@ -102,6 +103,25 @@ public enum BoardTruth {
                   arrives > leaves, arrives.timeIntervalSince(leaves) < 3 * 3600 else { continue }
             if result.contains(where: { $0.trainId == train && $0.transferCount == 0 }) { continue }
             result.append(boardTrip(train, origin, pair: pair, departure: leaves, arrival: arrives, fetchedAt: fetchedAt, terminus: nil))
+        }
+        // A train another terminal's board says leaves from there today
+        // doesn't leave from here, whatever the timetable says (a train
+        // number has one origin). On 5 October 6233 and 6237 ran from
+        // Hoboken; Penn Station's board listed them as cancelled for a while,
+        // then not at all, and the planner went on offering them from Penn.
+        for (otherId, otherBoard) in boards where otherId != pair.fromId && UserConfig.destinationIds.contains(otherId) {
+            let label = Stations.station(otherId)?.shortLabel ?? otherId
+            for (train, atHome) in homeBoard where !NJTParse.isTowardCity(atHome.destination) && originBoard[train] == nil {
+                guard let leaves = otherBoard[train]?.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }),
+                      trusted(leaves, fetchedAt: fetchedAt) else { continue }
+                for index in result.indices {
+                    let trip = result[index]
+                    guard trip.trainId == train, trip.transferCount == 0, trip.status != .cancelled,
+                          abs(trip.departure.timeIntervalSince(leaves)) <= window.back else { continue }
+                    result[index].status = .cancelled
+                    result[index].statusNote = "Leaves from \(label) today"
+                }
+            }
         }
         return result.stableSorted { $0.departure < $1.departure }
     }
