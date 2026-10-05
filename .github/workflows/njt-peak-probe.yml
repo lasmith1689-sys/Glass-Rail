@@ -1,0 +1,35 @@
+name: NJT peak probe
+# One-off live check for the missing-trains fix. Runs only on this branch.
+on:
+  push:
+    branches: [ci-njt-peak-probe]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Probe NJ Transit
+        run: python3 probe.py out
+      - name: Publish results to ci-njt-peak-results
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -d out ] || exit 0
+          cat out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          cd out
+          git init -q -b ci-njt-peak-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "NJT peak probe ${GITHUB_SHA::7}"
+          for i in 1 2 3; do
+            git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-njt-peak-results && exit 0
+            sleep 5
+          done
+          exit 1
