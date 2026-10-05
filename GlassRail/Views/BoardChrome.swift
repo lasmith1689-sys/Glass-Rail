@@ -143,6 +143,8 @@ struct DestinationPill: View {
 }
 
 /// "Later this way": the next departures at a glance; opens the full list.
+/// It opens even with nothing later: the sheet is also the way to a train
+/// that already left, and the last train home is when that matters most.
 struct LaterTeaser: View {
     let later: [TripView]
     let action: () -> Void
@@ -183,10 +185,8 @@ struct LaterTeaser: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScale())
-        .disabled(later.isEmpty)
-        .opacity(later.isEmpty ? 0.5 : 1)
         .glassPanel(radius: 16)
-        .accessibilityHint("Shows later trains; tap one to pin it")
+        .accessibilityHint(later.isEmpty ? "Opens the list, to follow a train that already left" : "Shows later trains; tap one to pin it")
     }
 }
 

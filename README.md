@@ -45,7 +45,8 @@ is, and when to say a train has departed.
   follows it exactly as if it had been pinned before it left. NJ Transit stops listing a train once
   it leaves, so they come from the app's earlier refreshes (and its last saved board, so they're
   there without signal) and, when the line is opened, from three planner lookups leaving 70, 45
-  and 20 minutes ago.
+  and 20 minutes ago. "Later this way" opens even when nothing later is listed, so the last train
+  home is covered too.
 - **"Train N has departed"** for 12 seconds when the featured train leaves.
 - **Freshness**: `LIVE` only for genuinely live data; `STALE` ("Data may be outdated.") after 3.5
   minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays,
