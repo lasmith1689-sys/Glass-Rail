@@ -84,6 +84,13 @@ struct LaterRow: View {
     private var trip: Trip { view.trip }
     private var dropoffLate: Int { view.timing?.dropoff?.delayMinutes ?? 0 }
     private var hasAlert: Bool { view.delayed || view.cancelled || view.trackChange != nil }
+    /// NJ Transit's own words when the badge can't say it all, as on the hero
+    /// card: "This train is now departing from Hoboken".
+    private var rawNote: String? {
+        guard let note = trip.statusNote, !note.isEmpty,
+              view.cancelled || (view.delayed && view.delayMinutes == nil) else { return nil }
+        return note
+    }
 
     var body: some View {
         Button(action: onPin) {
@@ -124,6 +131,13 @@ struct LaterRow: View {
                             }
                         }
                         .padding(.top, 4)
+                    }
+                    if let rawNote {
+                        Text(rawNote)
+                            .grFont(11.5, style: .caption, maxScale: 1.4)
+                            .foregroundStyle(theme.ink.opacity(0.75))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

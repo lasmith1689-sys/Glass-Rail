@@ -27,7 +27,9 @@ is, and when to say a train has departed.
 - **"Later this way"**: the next departures at a glance, and a sheet with every later train (true
   times, arrival, per-leg lateness, badges, track). Tap one to pin it; **"Pinned · show next"**
   releases it. A pinned train survives its own departure and stays featured until about 3 minutes
-  after arrival, and is remembered for 3 hours across relaunches.
+  after arrival, and is remembered for 3 hours across relaunches. Then the pin lets go (at the
+  latest 3 hours after its train left, even if the app never closed), so tomorrow's train of the
+  same number is never pinned; switching to the other direction mid-ride keeps the ride.
 - **"Train N has departed"** for 12 seconds when the featured train leaves.
 - **Freshness**: `LIVE` only for genuinely live data; `STALE` ("Data may be outdated.") after 3.5
   minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays,
@@ -157,6 +159,14 @@ sent 6222 to Penn Station, so it showed almost nothing. Now the boards win:
 - **Boards add trains, never days.** A board's times carry no date, so its trains count only from 90
   minutes back to 6 hours ahead, and when the planner says nothing runs at all (a Saturday at
   Watchung Avenue) the boards don't overrule it.
+- **A connection must exist.** When the connecting train's own live stop list doesn't call at the
+  transfer station, or marks that stop cancelled, the trip shows as cancelled with the reason.
+  That morning the planner offered Penn Station to Watchung Avenue by NEC 3833 to Secaucus and 6233
+  from there, but the diverted trains ran by Newark Broad Street (6222's stop list: Watchung Avenue
+  ... Newark Broad Street, Hoboken), so the board said "Train 6233 isn't stopping at Secaucus today"
+  instead of sending you to wait for it. Without a stop list the connection stands.
+- **The widget and the Live Activity say where a train really ends**: "To Hoboken" on a Penn train
+  sent to Hoboken ("To HOB" on the one-line Lock Screen widget).
 - **One retry.** A request that fails in a way likely to pass (a 5xx, a 429, a reply that isn't JSON,
   a dropped connection) is tried once more after 0.4 seconds; a timeout isn't, so a dead feed can't
   double the wait.
@@ -193,7 +203,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 282 tests: v4's 138 vitest cases, one XCTest each, plus 144 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 290 tests: v4's 138 vitest cases, one XCTest each, plus 152 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -228,7 +238,11 @@ GitHub Actions is the only build machine. Every push runs CI (`.github/workflows
    Avenue's own board fetched separately. Every train for the city in the next 2 hours must be in
    the app and on screen (unless a later trip beats it), a train the board counts down to must show
    within 3 minutes of that time, and no train may show as direct to a terminal its board says it
-   doesn't reach. Its summary is posted as the `soak` notice. The job never blocks the rest of CI.
+   doesn't reach. Home, every train on Watchung Avenue's board still on Hoboken's or Penn Station's
+   own board must be a direct ride home from there, on screen in PM mode and within 3 minutes of
+   that board's countdown; and a connection leading the board must be one the connecting train's
+   own stop list allows. Its summary is posted as the `soak` notice. The job never blocks the rest
+   of CI.
 
 Shipping to TestFlight is separate and deliberate: see [TESTFLIGHT.md](TESTFLIGHT.md).
 
@@ -279,6 +293,11 @@ launch arguments (used by CI's smoke test):
 - v4's Glass theme laid a milky full-screen card over everything, so nothing showed through. The
   app's Glass theme drops it: dark midnight backdrop, light text, and see-through glass cards.
 - The widget follows the clock and ignores pins and manual flips.
+- v4's pins, track history and stop lists carried no date, which a page reload hid; an iOS app can
+  stay in memory for days. A pin now lets go once its ride is over (3 hours after its train left
+  at the latest), a train unseen for 6 hours is forgotten before tracks are compared, and a stop
+  list only counts when its times fall within the trip's own span. "Later this way" lists every
+  later train; v4 stopped at 10, when its four planner lookups rarely found more.
 - With nothing left to show this way on sample or stale data, the hero says "No more trains this
   way" rather than v4's "No trains from Watchung Ave", which is reserved for live data.
 - Sample data never shows a train as late or on time. v4.2's true-time path applied live stop

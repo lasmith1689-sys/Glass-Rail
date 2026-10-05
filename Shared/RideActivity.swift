@@ -99,7 +99,12 @@ extension RideActivityAttributes {
     /// board's featured train, or the pinned ride.
     static func preview(state: BoardState, updatedAt: Date, now: Date) -> (RideActivityAttributes, ContentState)? {
         guard let hero = state.hero, let key = hero.key, let trainId = hero.trip.trainId else { return nil }
-        let attributes = RideActivityAttributes(key: key, trainId: trainId, fromLabel: state.from.shortLabel, toLabel: state.to.shortLabel)
+        let attributes = RideActivityAttributes(
+            key: key,
+            trainId: trainId,
+            fromLabel: state.from.shortLabel,
+            toLabel: hero.trip.terminus ?? state.to.shortLabel
+        )
         return (attributes, ContentState(view: hero, state: state, updatedAt: updatedAt, now: now))
     }
 }

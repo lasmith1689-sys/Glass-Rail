@@ -188,6 +188,108 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(BoardEngine.updatedRideCache(nil, state: state), RideCache(key: pin.key, trip: weekday[1]))
     }
 
+    // MARK: The next day
+
+    func testAPinLapsesThreeHoursAfterItsTrainLeft() {
+        let pinned = trip("1074", "watchung", "hoboken", at(morning, 10))
+        XCTAssertFalse(BoardEngine.pinExpired(trip: pinned, pinnedAt: morning, now: at(morning, 10 + 179)))
+        XCTAssertTrue(BoardEngine.pinExpired(trip: pinned, pinnedAt: morning, now: at(morning, 10 + 181)))
+        // Pinned well before its train: the clock starts when the train leaves.
+        XCTAssertFalse(BoardEngine.pinExpired(trip: pinned, pinnedAt: at(morning, -170), now: at(morning, 60)))
+        // Without the trip, from when it was pinned.
+        XCTAssertTrue(BoardEngine.pinExpired(trip: nil, pinnedAt: morning, now: at(morning, 181)))
+        XCTAssertFalse(BoardEngine.pinExpired(trip: nil, pinnedAt: nil, now: at(morning, 24 * 60)))
+    }
+
+    func testARideThatIsOverSaysSoSoThePinCanGo() {
+        let pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
+        let feed = payload(Array(weekday.dropFirst())) // the planner no longer offers 1074
+        let riding = trip("1074", "watchung", "hoboken", at(morning, -12), track: "2")
+        XCTAssertFalse(compute(feed, pin: pin, ride: RideCache(key: pin.key, trip: riding)).pinRideOver)
+        let arrived = trip("1074", "watchung", "hoboken", at(morning, -50), track: "2") // arrived 11 min ago
+        XCTAssertTrue(compute(feed, pin: pin, ride: RideCache(key: pin.key, trip: arrived)).pinRideOver)
+        let upcoming = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1078")
+        XCTAssertFalse(compute(payload(weekday), pin: upcoming).pinRideOver)
+        XCTAssertFalse(compute(payload(weekday)).pinRideOver)
+    }
+
+    func testThePinnedRideIsKeptWhileTheOtherDirectionIsOnScreen() {
+        let pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
+        let ride = RideCache(key: pin.key, trip: trip("1074", "watchung", "hoboken", at(morning, -12)))
+        let otherWay = compute(payload(weekday), override: ModeOverride(mode: .pm, at: morning), pin: pin, ride: ride)
+        XCTAssertNil(otherWay.activePinKey)
+        XCTAssertEqual(BoardEngine.updatedRideCache(ride, state: otherWay, pin: pin), ride)
+        XCTAssertNil(BoardEngine.updatedRideCache(ride, state: otherWay, pin: nil), "no pin, no ride")
+    }
+
+    func testTomorrowsTrainOfTheSameNumberIsNotATrackChange() {
+        var sameDay = TrackState()
+        sameDay.ingest(payload([trip("1207", "hoboken", "watchung", at(evening, 10), track: "8")]), now: evening)
+        sameDay.ingest(payload([trip("1207", "hoboken", "watchung", at(evening, 10), track: "6")]), now: at(evening, 2))
+        XCTAssertEqual(sameDay.changes["hoboken|watchung|1207"]?.to, "6", "within the day a new track is a change")
+
+        let tomorrow = at(evening, 24 * 60)
+        var nextDay = TrackState()
+        nextDay.ingest(payload([trip("1207", "hoboken", "watchung", at(evening, 10), track: "8")]), now: evening)
+        nextDay.ingest(payload([trip("1207", "hoboken", "watchung", at(tomorrow, 10), track: "6")]), now: tomorrow)
+        XCTAssertTrue(nextDay.changes.isEmpty, "tomorrow's 1207 from another track is not a change")
+        XCTAssertEqual(nextDay.history["hoboken|watchung|1207"], "6")
+    }
+
+    func testYesterdaysStopListDoesNotDescribeTodaysTrain() {
+        let today = trip("1074", "watchung", "hoboken", at(morning, 10), track: "2")
+        func run(_ day: Date) -> [TrainStop] {
+            [
+                TrainStop(name: "Watchung Avenue", time: at(day, 10), departed: day < morning, status: nil, note: nil),
+                TrainStop(name: "Hoboken", time: at(day, 49), departed: day < morning, status: nil, note: nil),
+            ]
+        }
+        let stale = compute(payload([today]), runs: ["1074": run(at(morning, -24 * 60))])
+        XCTAssertEqual(stale.hero?.trip.trainId, "1074")
+        XCTAssertNil(stale.heroStops, "yesterday's run of 1074 is not today's")
+        XCTAssertEqual(stale.progress, 0, accuracy: 1e-9, "not shown as arrived")
+        let fresh = compute(payload([today]), runs: ["1074": run(morning)])
+        XCTAssertEqual(fresh.heroStops?.count, 2)
+    }
+
+    func testAConnectionOntoATrainThatNoLongerCallsThereIsCancelledWithTheReason() {
+        // Penn Station to Watchung Avenue by NEC 3833 to Secaucus, then 6233:
+        // but today 6233 runs from Hoboken by Newark Broad Street.
+        let connection = trip("3833", "penn", "watchung", at(evening, 10), duration: 60, transfers: ["Secaucus"], legs: ["3833", "6233"])
+        let feed = payload([connection], generatedAt: evening)
+        func stop(_ name: String, _ minutes: Double) -> TrainStop {
+            TrainStop(name: name, time: at(evening, minutes), departed: false, status: nil, note: nil)
+        }
+        let viaNewarkBroad = ["6233": [stop("Hoboken", 5), stop("Newark Broad Street", 25), stop("Watchung Avenue", 60)]]
+        let broken = compute(feed, now: evening, destination: "penn", runs: viaNewarkBroad).hero
+        XCTAssertEqual(broken?.trip.trainId, "3833")
+        XCTAssertEqual(broken?.cancelled, true)
+        XCTAssertEqual(broken?.trip.statusNote, "Train 6233 isn't stopping at Secaucus today")
+
+        let viaSecaucus = ["6233": [stop("New York Penn Station", 29), stop("Secaucus Upper Lvl", 38), stop("Watchung Avenue", 69)]]
+        XCTAssertEqual(compute(feed, now: evening, destination: "penn", runs: viaSecaucus).hero?.cancelled, false)
+        XCTAssertEqual(compute(feed, now: evening, destination: "penn").hero?.cancelled, false, "no stop list, no verdict")
+        var skipped = viaSecaucus
+        skipped["6233"]?[1].status = "Cancelled"
+        XCTAssertEqual(compute(feed, now: evening, destination: "penn", runs: skipped).hero?.cancelled, true)
+        // Yesterday's list for 6233 says nothing about today.
+        let yesterday = viaNewarkBroad.mapValues { stops in
+            stops.map { stop -> TrainStop in
+                var old = stop
+                old.time = stop.time?.addingTimeInterval(-24 * 3600)
+                return old
+            }
+        }
+        XCTAssertEqual(compute(feed, now: evening, destination: "penn", runs: yesterday).hero?.cancelled, false)
+    }
+
+    func testLaterListsEveryTrainThisWay() {
+        let many = (0..<15).map { trip(String(2000 + $0), "watchung", "hoboken", at(morning, Double(5 + 10 * $0))) }
+        let state = compute(payload(many))
+        XCTAssertEqual(state.hero?.trip.trainId, "2000")
+        XCTAssertEqual(state.later.count, 14)
+    }
+
     func testTracksThePinnedTrainAndConnectionsFirstCappedAtSix() {
         let pin = Pin(dirKey: "watchung|penn", key: "watchung|penn|6222")
         let base = Status.selectTripViews(weekday, fromId: "watchung", toId: "hoboken", now: morning, alerts: true, changes: [:])

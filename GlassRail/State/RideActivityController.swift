@@ -89,7 +89,8 @@ final class RideActivityController {
             key: pin.key,
             trainId: trainId,
             fromLabel: state.from.shortLabel,
-            toLabel: state.to.shortLabel
+            // A train that ends short of the destination today says where.
+            toLabel: hero.trip.terminus ?? state.to.shortLabel
         )
         do {
             _ = try Activity.request(

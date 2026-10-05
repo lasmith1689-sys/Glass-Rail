@@ -22,6 +22,8 @@ public struct RestoredPin: Equatable, Sendable {
     public var dirKey: String
     public var key: String
     public var trip: Trip?
+    /// When it was pinned.
+    public var at: Date
 
     public var pin: Pin { Pin(dirKey: dirKey, key: key) }
 }
@@ -60,7 +62,7 @@ public enum PinStore {
         guard let atText = saved["at"] as? String, let at = ISOTime.date(from: atText) else { return nil }
         // Future timestamps (clock skew) are kept: only genuine age expires a pin.
         if now.timeIntervalSince(at) > ttl { return nil }
-        return RestoredPin(dirKey: dirKey, key: key, trip: validTrip(saved["trip"], key: key))
+        return RestoredPin(dirKey: dirKey, key: key, trip: validTrip(saved["trip"], key: key), at: at)
     }
 
     /// A stored trip that is not the pinned train is worse than none at all.

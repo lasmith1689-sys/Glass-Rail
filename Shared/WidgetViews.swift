@@ -49,6 +49,8 @@ enum WidgetText {
 
     static func status(_ train: WidgetTrain) -> (text: String, tone: AlertBadge.Tone)? {
         if train.cancelled { return ("Cancelled", .cancel) }
+        // Not the widget's destination today: worth more than a delay.
+        if let terminus = train.terminus { return ("To \(terminus)", .delay) }
         if train.delayed { return (train.delayMinutes.map { "Delayed \($0)m" } ?? "Delayed", .delay) }
         return nil
     }
@@ -56,6 +58,7 @@ enum WidgetText {
     /// "+6m" or "Cancelled", for the tightest layouts.
     static func shortStatus(_ train: WidgetTrain) -> String? {
         if train.cancelled { return "Cancelled" }
+        if let terminus = train.terminus { return "To \(terminus)" }
         if train.delayed { return train.delayMinutes.map { "+\($0)m" } ?? "Late" }
         return nil
     }

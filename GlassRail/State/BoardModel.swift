@@ -50,6 +50,8 @@ final class BoardModel {
     @ObservationIgnored private var lastRunsFetch = Date.distantPast
     @ObservationIgnored private var lastWidgetReload = Date.distantPast
     @ObservationIgnored private var started = false
+    /// When the current pin was set (restored with it at launch).
+    @ObservationIgnored private var pinnedAt: Date?
     @ObservationIgnored private var catchUpScheduled = false
 
     /// How often the board polls NJ Transit, like v4.
@@ -80,6 +82,7 @@ final class BoardModel {
             // keep extending its life.
             if let restored = store.restorePin(now: Date()) {
                 pin = restored.pin
+                pinnedAt = restored.at
                 if let trip = restored.trip {
                     rideCache = RideCache(key: restored.key, trip: trip)
                 }
@@ -187,7 +190,9 @@ final class BoardModel {
             // show at all, fall back to the bundled sample, always labeled
             // SAMPLE.
             fetchFailures += 1
-            if payload == nil {
+            // Rebuilt on every failure, so a long outage doesn't run the
+            // sample's times out into "No more trains this way".
+            if payload == nil || payload?.source.kind == .sample {
                 payload = SampleFixture.payload(
                     now: Date(),
                     detail: "Live NJ Transit feed unavailable, showing sample data. (\(error.localizedDescription))"
@@ -270,6 +275,10 @@ final class BoardModel {
             state = nil
             return
         }
+        // A pin lapses 3 hours after its train left (see BoardEngine.pinExpired).
+        if pin != nil, BoardEngine.pinExpired(trip: rideCache?.trip, pinnedAt: pinnedAt, now: now) {
+            releasePin()
+        }
         let override = Direction.effectiveOverride(modeOverride, now: now)
         if modeOverride != nil && override == nil { modeOverride = nil }
         var inputs = BoardInputs(
@@ -284,11 +293,21 @@ final class BoardModel {
             fetchFailures: fetchFailures
         )
         var next = BoardEngine.compute(inputs)
-        // v4 kept hold of the pinned trip during render; so do we.
-        let cache = BoardEngine.updatedRideCache(rideCache, state: next)
+        // v4 kept hold of the pinned trip during render; so do we, for as long
+        // as the pin lasts, even while the other direction is on screen.
+        let cache = BoardEngine.updatedRideCache(rideCache, state: next, pin: pin)
         if cache != rideCache {
             rideCache = cache
             inputs.rideCache = cache
+            next = BoardEngine.compute(inputs)
+        }
+        // Once the pinned ride is over the pin has done its job: let it go, so
+        // "Train N has departed" comes back and tomorrow's train of the same
+        // number is never pinned.
+        if next.pinRideOver {
+            releasePin()
+            inputs.pin = nil
+            inputs.rideCache = nil
             next = BoardEngine.compute(inputs)
         }
         if let label = watcher.observe(next, now: now) {
@@ -353,6 +372,7 @@ final class BoardModel {
         guard let key = view.key, let dirKey = state?.dirKey else { return }
         let newPin = Pin(dirKey: dirKey, key: key)
         pin = newPin
+        pinnedAt = Date()
         rideCache = RideCache(key: key, trip: view.trip)
         if demo == nil { store.savePin(newPin, trip: view.trip, now: Date()) }
         activeSheet = nil
@@ -361,9 +381,16 @@ final class BoardModel {
 
     /// "Pinned · show next".
     func unpin() {
-        pin = nil
-        if demo == nil { store.savePin(nil, trip: nil, now: Date()) }
+        releasePin()
         recompute()
+    }
+
+    /// Forget the pin and its ride, here and in storage.
+    private func releasePin() {
+        pin = nil
+        pinnedAt = nil
+        rideCache = nil
+        if demo == nil { store.savePin(nil, trip: nil, now: Date()) }
     }
 
     func selectTheme(_ newTheme: Theme) {

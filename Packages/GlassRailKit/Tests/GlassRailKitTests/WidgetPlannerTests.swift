@@ -196,6 +196,16 @@ final class WidgetPlannerTests: XCTestCase {
 
     // MARK: Inline Lock Screen line
 
+    func testATrainThatEndsShortOfTheDestinationSaysWhere() {
+        var diverted = makeTrip(toId: "penn", trainId: "6222", departure: at(8), arrival: nil, track: "2")
+        diverted.terminus = "Hoboken"
+        let feed = Payload(generatedAt: now, source: PayloadSource(kind: .live, detail: "test"), trips: [diverted])
+        let train = WidgetPlanner.snapshot(payload: feed, runs: [:], destinationId: "penn", at: now).next
+        XCTAssertEqual(train?.trainId, "6222")
+        XCTAssertEqual(train?.terminus, "Hoboken")
+        XCTAssertEqual(train?.inlineSummary, "1:08 PM · To HOB")
+    }
+
     func testTheInlineLineIsShortAndSaysOneThingAfterTheTime() {
         let snapshot = WidgetPlanner.snapshot(payload: payload, runs: [:], destinationId: "hoboken", at: now)
         guard let onTime = snapshot.next, let delayed = snapshot.later.first else {

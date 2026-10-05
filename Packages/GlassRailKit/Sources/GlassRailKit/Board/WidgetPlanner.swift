@@ -13,6 +13,9 @@ public struct WidgetTrain: Equatable, Sendable, Codable {
     public var delayMinutes: Int?
     public var cancelled: Bool
     public var transferCount: Int
+    /// Where the train ends when that isn't the widget's destination
+    /// ("Hoboken" for a New York train sent to Hoboken); see `Trip.terminus`.
+    public var terminus: String?
 
     public init(view: TripView) {
         trainId = view.trip.trainId
@@ -24,16 +27,23 @@ public struct WidgetTrain: Equatable, Sendable, Codable {
         delayMinutes = view.delayMinutes
         cancelled = view.cancelled
         transferCount = view.trip.transferCount
+        terminus = view.trip.terminus
     }
 }
 
 extension WidgetTrain {
+    /// "HOB" for "Hoboken": a station's code when it has one, for the tightest lines.
+    static func code(_ label: String) -> String {
+        Stations.all.values.first { $0.shortLabel == label }?.code ?? label
+    }
+
     /// The inline Lock Screen line. It shares a narrow row with the date, so
     /// it says one thing after the time: the track, or what is wrong.
     /// "2:36 PM · Tk 2", "2:42 PM · +6m", "Cancelled 2:36 PM".
     public var inlineSummary: String {
         let time = Format.time(departure)
         if cancelled { return "Cancelled \(time)" }
+        if let terminus { return "\(time) · To \(Self.code(terminus))" }
         if delayed { return "\(time) · \(delayMinutes.map { "+\($0)m" } ?? "late")" }
         guard let track, !track.isEmpty else { return time }
         return "\(time) · Tk \(track)"

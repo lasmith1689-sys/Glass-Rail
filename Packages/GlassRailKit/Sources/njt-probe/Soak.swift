@@ -14,7 +14,9 @@ import GlassRailKit
 // And home: every train on Watchung Avenue's board coming out of the city in
 // the next 2 hours that is still on Hoboken's or Penn Station's board (so it
 // hasn't left there) must be a way home from that terminal, on screen in PM
-// mode, and shown within 3 minutes of that board's countdown. A failed
+// mode, and shown within 3 minutes of that board's countdown; and a connection
+// leading the board must be one the connecting train's own stop list allows
+// (it calls at the transfer station). A failed
 // refresh or any problem fails the step; the CI step is informational.
 
 /// Counts requests, so each round can say what it cost.
@@ -70,15 +72,19 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
         seconds.append(Date().timeIntervalSince(started))
         guard let payload else { continue }
 
-        // Stop lists for the trains on screen, as the app loads them.
+        // Stop lists for the trains each direction shows, as the app loads
+        // them while that direction is on screen (so the ride home is checked
+        // as the rider would see it in the morning too).
         let now = Date()
-        var tracked: [String] = []
         for destination in ["hoboken", "penn"] {
-            for id in BoardEngine.compute(BoardInputs(payload: payload, runs: runs, now: now, destinationId: destination)).trackedTrainIds where !tracked.contains(id) {
-                tracked.append(id)
+            for mode in [CommuteMode.am, .pm] {
+                let ids = BoardEngine.compute(BoardInputs(
+                    payload: payload, runs: runs, now: now, destinationId: destination,
+                    modeOverride: ModeOverride(mode: mode, at: now)
+                )).trackedTrainIds
+                runs.merge(await app.fetchTrainRuns(ids)) { _, new in new }
             }
         }
-        runs.merge(await app.fetchTrainRuns(Array(tracked.prefix(NJTQueries.maxStopListTrains)))) { _, new in new }
         requests.append(transport.take())
 
         guard let items = try? await referee.fetchDepartureBoard("Watchung Avenue") else {
@@ -163,8 +169,16 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                     }
                 }
             }
+            // A connection the rider is told to make must exist: the connecting
+            // train's own stop list must call at the transfer station.
+            if let hero = state.hero, !hero.cancelled, hero.trip.transferCount > 0 {
+                let legs = Array((hero.trip.legTrainIds ?? []).dropFirst())
+                if let reason = BoardEngine.brokenConnection(hero.trip, runs: await referee.fetchTrainRuns(legs)) {
+                    problems.append("round \(round) home from \(terminal): \(hero.trip.trainId ?? "?") \(Format.time(hero.expectedDeparture)) leads the board, but \(reason)")
+                }
+            }
             if let hero = state.hero {
-                line += " home from \(terminal): \(hero.trip.trainId ?? "?") \(Format.time(hero.expectedDeparture)) \(Format.tripType(hero.trip))\(hero.delayed ? " late" : "");"
+                line += " home from \(terminal): \(hero.trip.trainId ?? "?") \(Format.time(hero.expectedDeparture)) \(Format.tripType(hero.trip))\(hero.delayed ? " late" : "")\(hero.cancelled ? " cancelled" : "");"
             } else {
                 line += " home from \(terminal): no train;"
             }
