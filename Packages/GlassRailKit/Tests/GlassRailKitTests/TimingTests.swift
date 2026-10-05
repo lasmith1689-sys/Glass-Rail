@@ -151,6 +151,45 @@ final class TimingTests: XCTestCase {
         XCTAssertEqual(t.dropoff?.live, false)
     }
 
+    // MARK: Boarding where the train starts
+
+    /// Train 6263 as NJ Transit served it on 5 October 2026 at 4:52 PM ET:
+    /// boarding at Penn Station, its first stop, for 4:52 (its board and the
+    /// planner), while its stop list put Penn Station at 4:38.
+    func run6263(departedPenn: Bool = false) -> [TrainStop] {
+        [
+            stop("New York Penn Station", et("16:38"), departedPenn, "BOARDING"),
+            stop("Newark Broad Street", et("17:09")),
+            stop("Watsessing Avenue", et("17:15")),
+            stop("Bloomfield", et("17:18")),
+            stop("Glen Ridge", et("17:20")),
+            stop("Bay Street", et("17:23")),
+            stop("Walnut Street", et("17:27")),
+            stop("Watchung Avenue", et("17:29")),
+            stop("Upper Montclair", et("17:32")),
+        ]
+    }
+
+    func testABoardingTrainLeavesWhereItStartsAtItsTimeNotWhenBoardingBegan() {
+        let boarding = Timing.resolveTripTiming(stops: run6263(), origin: pennRef, dest: watchungRef,
+                                                scheduledDeparture: et("16:52"), scheduledArrival: et("17:30"))
+        XCTAssertEqual(boarding.pickup.expected, et("16:52"))
+        XCTAssertTrue(boarding.pickup.live)
+        XCTAssertEqual(boarding.pickup.delayMinutes, 0)
+        XCTAssertEqual(boarding.dropoff?.expected, et("17:29"), "its live arrival still counts")
+        // Once it has left, its stop list's time is when it left.
+        let gone = Timing.resolveTripTiming(stops: run6263(departedPenn: true), origin: pennRef, dest: watchungRef,
+                                            scheduledDeparture: et("16:52"), scheduledArrival: et("17:30"))
+        XCTAssertEqual(gone.pickup.expected, et("16:38"))
+    }
+
+    func testATrainRunningEarlyOnTheWayStillShowsItsEarlyTime() {
+        // 1074 left Watchung Avenue at 9:50, due 9:51: not where it starts.
+        let early = run1074().map { $0.name == "Watchung Avenue" ? stop("Watchung Avenue", et("9:50")) : $0 }
+        XCTAssertEqual(resolve(stops: early).pickup.expected, et("9:50"))
+        XCTAssertTrue(resolve(stops: early).pickup.live)
+    }
+
     func testSkipsStopsWhoseTimeCouldNotBeParsed() {
         let stops = run1074().map { $0.name == "Watchung Avenue" ? stop("Watchung Avenue", nil) : $0 }
         let t = resolve(stops: stops)

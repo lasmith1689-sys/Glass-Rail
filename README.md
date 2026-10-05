@@ -174,10 +174,13 @@ sent 6222 to Penn Station, so it showed almost nothing. Now the boards win:
   hero shows 6216 leaving at 9:18, `DELAYED 13m`, with its arrival pushed back to match until the
   train's stop list has its own times. The time shown is always the live one: the stop list's,
   even a minute before the timetable or the board (trains do leave early; 1074, due at 9:51, left
-  Watchung Avenue at 9:50). A train its board still lists stays up, though, until the board lets go
-  of it or its stop list says it left (6233 was still boarding at Hoboken at 10:29 while its stop
-  list said 10:28), without its time being changed; one listed after its time with no countdown
-  keeps its timetable time, marked late.
+  Watchung Avenue at 9:50). Except where a train starts: there, a stop-list time earlier than its
+  own, before it has left, is when boarding began, not when it leaves (6263, boarding at Penn
+  Station for 4:52 on 5 October, was listed there at 4:38, and the board had dropped it as gone;
+  6233, boarding at Hoboken for 10:29, was listed at 10:28), so a train boarding at Hoboken or Penn
+  Station shows its own time until its stop list says it left. A train its board still lists stays
+  up until the board lets go of it or its stop list says it left, without its time being changed;
+  one listed after its time with no countdown keeps its timetable time, marked late.
 - **Every train on Watchung Avenue's board bound for the city is listed**, whatever the planner found.
   One the board sends to your terminal is a direct trip. One it sends elsewhere keeps only the
   connections that still work (a train sent to Hoboken can't make a change at Secaucus), or else
@@ -242,7 +245,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 306 tests: v4's 138 vitest cases, one XCTest each, plus 168 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 308 tests: v4's 138 vitest cases, one XCTest each, plus 170 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |

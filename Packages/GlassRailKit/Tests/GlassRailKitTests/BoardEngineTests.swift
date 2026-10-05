@@ -333,9 +333,12 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(compute(feed, now: evening, destination: "penn", runs: yesterday).hero?.cancelled, false)
     }
 
-    func testATrainItsBoardStillListsIsNotGoneBecauseItsStopListSaysSo() {
+    func testATrainBoardingWhereItStartsIsNotGoneBecauseItsStopListSaysAnEarlierTime() {
         // Hoboken's board still listed 6233 ("All Aboard") while its stop list
-        // put Hoboken a minute earlier: it was boarding, not gone.
+        // put Hoboken, its first stop, a minute earlier: it was boarding, not
+        // gone. At the station a train starts from, an earlier time before it
+        // has left is when boarding began (6263 was listed at Penn Station at
+        // 4:38, boarding for 4:52), so the time shown is its own.
         var boarding = trip("6233", "hoboken", "watchung", at(evening, 0), duration: 41, track: "6")
         boarding.listedAt = evening
         boarding.countdownMinutes = 0
@@ -346,8 +349,12 @@ final class BoardEngineTests: XCTestCase {
         let feed = payload([boarding], generatedAt: evening)
         let state = compute(feed, now: at(evening, 0.5), destination: "hoboken", runs: runs)
         XCTAssertEqual(state.hero?.trip.trainId, "6233")
-        XCTAssertEqual(state.hero?.expectedDeparture, at(evening, -1), "the live time, a minute early")
-        XCTAssertEqual(state.hero?.holdUntil, evening)
+        XCTAssertEqual(state.hero?.expectedDeparture, evening, "its own time, not when boarding began")
+        XCTAssertEqual(state.hero?.delayed, false)
+        // Fourteen minutes early and still boarding, as 6263 was: still on the board.
+        var early = runs
+        early["6233"]?[0].time = at(evening, -14)
+        XCTAssertEqual(compute(feed, now: at(evening, -2), destination: "hoboken", runs: early).hero?.expectedDeparture, evening)
         // Once its stop list says it has left Hoboken, it's gone.
         var left = runs
         left["6233"]?[0].departed = true

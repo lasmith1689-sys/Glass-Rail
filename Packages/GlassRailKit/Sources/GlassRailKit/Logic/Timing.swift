@@ -80,7 +80,16 @@ public enum Timing {
         var pickup: LegTiming?
         if boardable, let originIdx, let stopTime = list[originIdx].time,
            abs(stopTime.timeIntervalSince(scheduledDeparture)) <= sanityWindow {
-            pickup = leg(scheduledDeparture, stopTime, live: true)
+            // A train can't leave the station it starts from before its time
+            // while it's still there: at its first stop, a time earlier than
+            // the timetable's, not yet departed, is when boarding began (on 5
+            // October 6263, due out of Penn Station at 4:52 and boarding on
+            // its board, was listed there at 4:38, and the board dropped it as
+            // gone). Anywhere else, or once it has left, an early time is the
+            // train running early: the time to show (1074 left Watchung Avenue
+            // at 9:50, due 9:51).
+            let boardingAtFirstStop = originIdx == 0 && !list[originIdx].departed && stopTime < scheduledDeparture
+            pickup = leg(scheduledDeparture, boardingAtFirstStop ? scheduledDeparture : stopTime, live: true)
         }
         let resolvedPickup: LegTiming
         if let pickup {
