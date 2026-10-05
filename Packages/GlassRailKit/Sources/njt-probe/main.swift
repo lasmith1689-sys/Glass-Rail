@@ -128,6 +128,23 @@ do {
     notice("live payload FAILED", error.localizedDescription)
 }
 
+// 3c. The app's own refreshes: the first on opening (nothing earlier, only
+// the direction on screen required), then the next a minute later, which
+// reuses the per-train answers.
+do {
+    let app = NJTClient()
+    let shown = BoardEngine.shownPair(now: Date(), destinationId: "hoboken", modeOverride: nil)
+    let t1 = Date()
+    let first = try await app.fetchLivePayload(required: [shown.key])
+    let cold = Date().timeIntervalSince(t1)
+    let t2 = Date()
+    _ = try await app.fetchLivePayload(required: [shown.key], previous: first)
+    let warm = Date().timeIntervalSince(t2)
+    notice("app refresh timing", "\(shown.key) on screen: first refresh \(String(format: "%.1f", cold)) s (\(first.trips.count) trips), next \(String(format: "%.1f", warm)) s, \(app.plannerCache.count) per-train answers cached")
+} catch {
+    notice("app refresh timing FAILED", error.localizedDescription)
+}
+
 // 4. One stop list, raw and parsed.
 if let train = firstTrain {
     do {

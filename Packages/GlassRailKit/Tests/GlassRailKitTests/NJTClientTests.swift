@@ -384,6 +384,36 @@ final class NJTClientTests: XCTestCase {
         XCTAssertTrue(planner.filter { clockTimes.contains($0.variables["time"].jsString) }.allSatisfy { $0.variables["timeOption"].jsString == "D" })
     }
 
+    func testTheFirstRefreshLooksUpTrainsOnlyForTheDirectionOnScreen() async throws {
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            return FakeNJT.planner(train: "1207", at: "10:21:00 AM", arrive: "11:00:00 AM")
+        }
+        let njt = client(fake)
+        let clockTimes: Set<String> = ["9:45 AM", "11:00 AM", "12:15 PM", "1:30 PM"]
+        func seeded() -> [String] {
+            fake.calls
+                .filter { $0.operation == "planner" && !clockTimes.contains($0.variables["time"].jsString) }
+                .map { "\($0.variables["origin"].jsString)>\($0.variables["destination"].jsString)" }
+        }
+
+        // Just opened: nothing earlier, so only the board on screen waits on them.
+        let first = try await njt.fetchLivePayload(required: ["watchung|hoboken"])
+        XCTAssertEqual(seeded(), ["Watchung Avenue Station>Hoboken Terminal", "Watchung Avenue Station>Hoboken Terminal"])
+
+        // A minute later the other directions get theirs; the one on screen comes from cache.
+        _ = try await njt.fetchLivePayload(required: ["watchung|hoboken"], previous: first)
+        XCTAssertEqual(Set(seeded()), [
+            "Watchung Avenue Station>Hoboken Terminal",
+            "Watchung Avenue Station>New York Penn Station",
+            "Hoboken Terminal>Watchung Avenue Station",
+            "New York Penn Station>Watchung Avenue Station",
+        ])
+        XCTAssertEqual(seeded().count, 2 + 2 + 1 + 1)
+    }
+
     func testATrainBetweenTheClockLookupsComesFromItsOwnLookup() async throws {
         // The clock lookups only ever see 1074; 1078 at 10:13 is found by the
         // lookup pinned to it.

@@ -90,7 +90,8 @@ public enum NJTQueries {
     /// screen: its next trains at the home station, soonest first.
     public static let seedsForShownDirection = 8
     /// Per-train lookups for each other direction, so a flip or a change of
-    /// terminal shows the next few trains straight away.
+    /// terminal shows the next few trains straight away. None on the first
+    /// refresh after opening, so the board on screen isn't kept waiting.
     public static let seedsForOtherDirection = 4
     /// How long a per-train lookup's answer is reused. Each sits at one
     /// train's own time, so the same lookups recur refresh after refresh and

@@ -259,12 +259,14 @@ public struct NJTClient: Sendable {
 
     /// Trips per pair, in pair order, plus the failure message of each pair
     /// whose planner window failed (see `PlannerWindow.failed`). Pairs in
-    /// `required` (all when nil) get more per-train lookups than the rest.
+    /// `required` (all when nil) get `NJTQueries.seedsForShownDirection`
+    /// per-train lookups, the rest `otherSeeds`.
     private func trips(
         for pairs: [ODPair],
         boards: [String: [String: BoardEntry]],
         offsets: [Int],
-        required: Set<String>?
+        required: Set<String>?,
+        otherSeeds: Int
     ) async -> (groups: [[Trip]], failures: [Int: String]) {
         let baseNow = clock()
         let homeBoard = boards[UserConfig.homeId] ?? [:]
@@ -278,7 +280,7 @@ public struct NJTClient: Sendable {
                     homeBoard: homeBoard,
                     now: baseNow,
                     horizon: horizon,
-                    limit: shown ? NJTQueries.seedsForShownDirection : NJTQueries.seedsForOtherDirection
+                    limit: shown ? NJTQueries.seedsForShownDirection : otherSeeds
                 )
                 group.addTask {
                     guard let from = Stations.station(pair.fromId), let to = Stations.station(pair.toId) else {
@@ -351,7 +353,11 @@ public struct NJTClient: Sendable {
         primary.failures.forEach(record)
         var boardIndexes = primary.indexes
 
-        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets, required: required)
+        // With nothing from an earlier refresh (the app just opened), only the
+        // directions in `required` get per-train lookups, so the board on screen
+        // loads as fast as before; the next refresh adds the others' from cache.
+        let otherSeeds = previous == nil ? 0 : NJTQueries.seedsForOtherDirection
+        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets, required: required, otherSeeds: otherSeeds)
         /// Why each direction (by index into `pairs`) has no trustworthy answer.
         var unreliable: [Int: String] = primaryTrips.failures
         func throwIfARequiredDirectionFailed() throws {
@@ -379,7 +385,7 @@ public struct NJTClient: Sendable {
             }
             let extra = await boards(for: extraStations)
             for (id, index) in extra.indexes { boardIndexes[id] = index }
-            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets, required: required)
+            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets, required: required, otherSeeds: otherSeeds)
             for (index, extraPair) in extraPairs.enumerated() {
                 guard let owner = pairs.indices.first(where: { Self.alternateKeys(for: pairs[$0]).contains(extraPair.key) && emptyKeys.contains(pairs[$0].key) }) else { continue }
                 if let failure = retried.failures[index] {
