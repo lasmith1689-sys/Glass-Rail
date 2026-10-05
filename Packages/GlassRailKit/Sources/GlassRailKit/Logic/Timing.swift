@@ -95,6 +95,14 @@ public enum Timing {
         }
 
         var dropoff: LegTiming?
+        if scheduledArrival == nil, pickup != nil, let originIdx {
+            // No timetable arrival (a trip read off a departure board): the
+            // live run says when it gets there, once its origin time checks out.
+            let rest = list[(originIdx + 1)...]
+            if let destStop = rest.first(where: { Journey.stopMatchesStation($0.name, dest) }), let stopTime = destStop.time {
+                dropoff = leg(stopTime, stopTime, live: true)
+            }
+        }
         if let scheduledArrival {
             if boardable, let originIdx {
                 let rest = list[(originIdx + 1)...]
@@ -124,7 +132,9 @@ public enum Timing {
     /// Fold resolved timing into a trip view so the rest of the UI (hero time,
     /// countdowns, ordering) uses the true times. A live pickup is
     /// authoritative: it can clear a "delayed" flag that came from stale status
-    /// text, but it never touches cancellations.
+    /// text, but it never touches cancellations. Without one, the later of the
+    /// two estimates stands, so a departure board saying the train is late
+    /// (see `Status.deriveTripView`) isn't undone by the timetable.
     public static func withTiming(_ view: TripView, _ timing: TripTiming) -> TripView {
         let delayed = timing.pickup.live ? timing.late : (view.delayed || timing.late)
         let delayMinutes: Int?
@@ -136,8 +146,10 @@ public enum Timing {
             delayMinutes = view.delayMinutes
         }
         var next = view
-        next.expectedDeparture = timing.pickup.expected
-        next.expectedArrival = timing.dropoff?.expected ?? view.expectedArrival
+        next.expectedDeparture = timing.pickup.live ? timing.pickup.expected : max(timing.pickup.expected, view.expectedDeparture)
+        if let dropoff = timing.dropoff {
+            next.expectedArrival = dropoff.live ? dropoff.expected : max(dropoff.expected, view.expectedArrival ?? dropoff.expected)
+        }
         next.delayed = delayed
         next.delayMinutes = delayMinutes
         next.timing = timing

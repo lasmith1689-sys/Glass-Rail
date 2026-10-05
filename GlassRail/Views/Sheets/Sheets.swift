@@ -100,7 +100,7 @@ struct LaterRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 0) {
                         Text(trip.trainId.map { "Train \($0)" } ?? "Rail trip")
-                        Text(" · \(Format.transferLabel(trip.transferCount))")
+                        Text(" · \(Format.tripType(trip))")
                             .foregroundStyle(theme.ink.opacity(0.8))
                     }
                     .grFont(13.1, .medium, style: .subheadline, maxScale: 1.4, digits: true)

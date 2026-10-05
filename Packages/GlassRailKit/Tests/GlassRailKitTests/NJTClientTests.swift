@@ -66,7 +66,7 @@ final class NJTClientTests: XCTestCase {
 
     func client(_ fake: FakeNJT) -> NJTClient {
         let fixed = base
-        return NJTClient(transport: fake, clock: { fixed })
+        return NJTClient(transport: fake, clock: { fixed }, retryDelay: 0)
     }
 
     // MARK: Requests
@@ -167,13 +167,16 @@ final class NJTClientTests: XCTestCase {
         XCTAssertEqual(payload.source.detail, "Live NJ Transit rail planner with origin-board tracks.")
         XCTAssertEqual(payload.generatedAt, base)
         // Pair order, each direction sorted, the planner's four overlapping
-        // windows de-duplicated.
+        // windows de-duplicated, and every train on Watchung Avenue's board
+        // into the city listed both ways (all four run to Hoboken: direct to
+        // Hoboken, ending at Hoboken for Penn Station).
         XCTAssertEqual(payload.trips.map { "\($0.fromId)>\($0.toId):\($0.trainId ?? "-")" }, [
-            "watchung>hoboken:1074", "watchung>hoboken:1078", "watchung>hoboken:1082",
+            "watchung>hoboken:1074", "watchung>hoboken:1078", "watchung>hoboken:1082", "watchung>hoboken:1086",
             "hoboken>watchung:1207",
-            "watchung>penn:6222",
+            "watchung>penn:1074", "watchung>penn:6222", "watchung>penn:1078", "watchung>penn:1082", "watchung>penn:1086",
             "penn>watchung:3855",
         ])
+        XCTAssertEqual(payload.trips.filter { $0.toId == "penn" && $0.trainId != "6222" }.map(\.terminus), ["Hoboken", "Hoboken", "Hoboken", "Hoboken"])
         let calls = fake.calls
         XCTAssertEqual(calls.filter { $0.operation == "board" }.count, 3)
         // Four clock lookups per direction, plus one per train on Watchung

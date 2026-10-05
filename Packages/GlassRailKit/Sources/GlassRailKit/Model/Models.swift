@@ -44,6 +44,15 @@ public struct Trip: Codable, Equatable, Hashable, Sendable {
     public var status: TripStatus?
     /// NJT's own message when the board reports an anomaly (delay/cancel text).
     public var statusNote: String?
+    /// When the origin station's departure board last listed this train,
+    /// which means it had not left yet. nil when the board didn't list it.
+    public var listedAt: Date?
+    /// The board's countdown at `listedAt`: "in 7 Min" is 7, "All Aboard" 0.
+    /// It counts down to the real departure, so it shows a late train.
+    public var countdownMinutes: Int?
+    /// Where the train ends when that isn't this trip's destination, from the
+    /// home station's board: "Hoboken" for a New York train sent to Hoboken.
+    public var terminus: String?
 
     public init(
         fromId: String,
@@ -57,7 +66,10 @@ public struct Trip: Codable, Equatable, Hashable, Sendable {
         legTrainIds: [String]? = nil,
         note: String? = nil,
         status: TripStatus? = nil,
-        statusNote: String? = nil
+        statusNote: String? = nil,
+        listedAt: Date? = nil,
+        countdownMinutes: Int? = nil,
+        terminus: String? = nil
     ) {
         self.fromId = fromId
         self.toId = toId
@@ -71,6 +83,9 @@ public struct Trip: Codable, Equatable, Hashable, Sendable {
         self.note = note
         self.status = status
         self.statusNote = statusNote
+        self.listedAt = listedAt
+        self.countdownMinutes = countdownMinutes
+        self.terminus = terminus
     }
 }
 

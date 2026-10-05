@@ -159,10 +159,15 @@ final class TimingTests: XCTestCase {
         XCTAssertEqual(t.dropoff?.live, true)
     }
 
-    func testReportsNoDropOffLegWhenTheTripHasNoScheduledArrival() {
+    func testTakesTheDropOffFromTheLiveRunWhenTheTripHasNoScheduledArrival() {
+        // A trip read off a departure board has no timetable arrival.
         let t = resolve(scheduledArrival: .some(nil))
-        XCTAssertNil(t.dropoff)
+        XCTAssertEqual(t.dropoff?.expected, et("10:32"))
+        XCTAssertEqual(t.dropoff?.live, true)
+        XCTAssertEqual(t.dropoff?.delayMinutes, 0)
         XCTAssertEqual(t.worstDelayMinutes, 6)
+        // With no live run there is nothing to show.
+        XCTAssertNil(resolve(stops: .some(nil), scheduledArrival: .some(nil)).dropoff)
     }
 
     // MARK: withTiming

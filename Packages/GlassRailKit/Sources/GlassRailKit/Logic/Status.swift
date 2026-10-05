@@ -105,20 +105,53 @@ public enum Status {
         return "\(trip.fromId)|\(trip.toId)|\(trainId)"
     }
 
+    /// When the origin's departure board says this train really leaves: its
+    /// countdown after `listedAt` ("in 7 Min" read at 9:11 is 9:18), which is
+    /// exact; or, for a train still listed after its timetable time with no
+    /// countdown, a minute after `listedAt`, which only says it hasn't gone.
+    /// nil when the board didn't list it.
+    public static func boardDeparture(_ trip: Trip) -> (time: Date, exact: Bool)? {
+        guard let listedAt = trip.listedAt else { return nil }
+        if let minutes = trip.countdownMinutes { return (listedAt.adding(minutes: minutes), true) }
+        if trip.departure < listedAt { return (listedAt.addingTimeInterval(60), false) }
+        return nil
+    }
+
+    /// A train counts as late from this many minutes behind its timetable.
+    public static let lateAfterMinutes = 2
+
     /// Derive the display state for one trip. `alerts` is false for sample
     /// payloads: fixture data must never surface delays, cancellations, or
     /// track changes as though they were real.
+    ///
+    /// A late train is caught two ways: NJ Transit's delay text ("Delayed 10
+    /// min"), and the board's countdown, which runs to the real departure, so
+    /// "in 10 Min" on a train due now means it is 10 minutes late even when
+    /// there is no text. On 5 October 2026 train 6216, due at 9:05, read "in 7
+    /// Min" at 9:11 with no delay text; going by the timetable alone it left
+    /// the board while it was still on its way.
     public static func deriveTripView(_ trip: Trip, changes: [String: TrackChange], alerts: Bool) -> TripView {
         let key = tripKey(trip)
-        let delayed = alerts && trip.status == .delayed
-        let delayMinutes = delayed ? parseDelayMinutes(trip.statusNote) : nil
+        var delayed = alerts && trip.status == .delayed
+        var delayMinutes = delayed ? parseDelayMinutes(trip.statusNote) : nil
+        var expectedDeparture = shift(trip.departure, minutes: delayMinutes) ?? trip.departure
+        var lateBy = delayMinutes
+        if alerts, let board = boardDeparture(trip), board.time > expectedDeparture {
+            expectedDeparture = board.time
+            let late = jsRound(expectedDeparture.timeIntervalSince(trip.departure) / 60)
+            if late >= lateAfterMinutes {
+                delayed = true
+                lateBy = late
+                if board.exact { delayMinutes = late }
+            }
+        }
         return TripView(
             trip: trip,
             key: key,
             delayed: delayed,
             delayMinutes: delayMinutes,
-            expectedDeparture: shift(trip.departure, minutes: delayMinutes) ?? trip.departure,
-            expectedArrival: shift(trip.arrival, minutes: delayMinutes),
+            expectedDeparture: expectedDeparture,
+            expectedArrival: shift(trip.arrival, minutes: lateBy),
             cancelled: alerts && trip.status == .cancelled,
             trackChange: (alerts && key != nil) ? changes[key!] : nil
         )
@@ -152,19 +185,22 @@ public enum Status {
     /// Upcoming trips for one direction, ordered by when they actually leave.
     /// Filtering and ordering use the expected (delay-shifted) departure so a
     /// delayed train neither vanishes while still catchable nor blocks an
-    /// on-time train that will leave before it.
+    /// on-time train that will leave before it. `timing` (live stop-list
+    /// times) is applied before that filter, so a train whose live stop time
+    /// is still ahead stays even when its timetable time has passed.
     public static func selectTripViews(
         _ trips: [Trip],
         fromId: String,
         toId: String,
         now: Date,
         alerts: Bool,
-        changes: [String: TrackChange]
+        changes: [String: TrackChange],
+        timing: (TripView) -> TripView = { $0 }
     ) -> [TripView] {
         let cutoff = now.addingTimeInterval(-departureGrace)
         return trips
             .filter { $0.fromId == fromId && $0.toId == toId }
-            .map { deriveTripView($0, changes: changes, alerts: alerts) }
+            .map { timing(deriveTripView($0, changes: changes, alerts: alerts)) }
             .filter { $0.expectedDeparture >= cutoff }
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
     }

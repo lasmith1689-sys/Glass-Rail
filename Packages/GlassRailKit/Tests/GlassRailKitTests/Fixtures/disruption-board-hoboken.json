@@ -1,0 +1,179 @@
+{
+ "data": {
+  "getTrainDepartureScreens": {
+   "items": [
+    {
+     "departureDate": "9:13 AM",
+     "destination": "Hackettstown",
+     "inlineMessage": "Please note track change",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": "14",
+     "trainID": "851"
+    },
+    {
+     "departureDate": "9:22 AM",
+     "destination": "Summit -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": "7",
+     "trainID": "6317"
+    },
+    {
+     "departureDate": "9:31 AM",
+     "destination": "Waldwick -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MAIN",
+     "status": "",
+     "track": "8",
+     "trainID": "1207"
+    },
+    {
+     "departureDate": "9:34 AM",
+     "destination": "New Bridge Landing -SEC",
+     "inlineMessage": "Please note track change",
+     "lineAbbreviation": "PASC",
+     "status": "",
+     "track": "11",
+     "trainID": "1651"
+    },
+    {
+     "departureDate": "9:38 AM",
+     "destination": "Gladstone",
+     "inlineMessage": "Please note track change",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": "12",
+     "trainID": "413"
+    },
+    {
+     "departureDate": "9:43 AM",
+     "destination": "MSU -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "6",
+     "trainID": "6231"
+    },
+    {
+     "departureDate": "9:47 AM",
+     "destination": "Suffern -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "BERG",
+     "status": "",
+     "track": "3",
+     "trainID": "9145"
+    },
+    {
+     "departureDate": "9:57 AM",
+     "destination": "Spring Valley -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "PASC",
+     "status": "",
+     "track": "4",
+     "trainID": "1607"
+    },
+    {
+     "departureDate": "10:04 AM",
+     "destination": "Dover -SEC",
+     "inlineMessage": "To be Announced",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": " ",
+     "trainID": "6619"
+    },
+    {
+     "departureDate": "10:29 AM",
+     "destination": "MSU -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": " ",
+     "trainID": "6233"
+    },
+    {
+     "departureDate": "10:38 AM",
+     "destination": "Gladstone",
+     "inlineMessage": "",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": "15",
+     "trainID": "415"
+    },
+    {
+     "departureDate": "10:39 AM",
+     "destination": "Ridgewood -SEC",
+     "inlineMessage": "To be Announced",
+     "lineAbbreviation": "BERG",
+     "status": "",
+     "track": " ",
+     "trainID": "1351"
+    },
+    {
+     "departureDate": "10:45 AM",
+     "destination": "Suffern -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MAIN",
+     "status": "",
+     "track": "9",
+     "trainID": "1111"
+    },
+    {
+     "departureDate": "10:46 AM",
+     "destination": "Dover -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": " ",
+     "trainID": "6621"
+    },
+    {
+     "departureDate": "11:17 AM",
+     "destination": "Spring Valley -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "PASC",
+     "status": "",
+     "track": "11",
+     "trainID": "1611"
+    },
+    {
+     "departureDate": "11:38 AM",
+     "destination": "Gladstone",
+     "inlineMessage": "",
+     "lineAbbreviation": "M&E",
+     "status": "",
+     "track": "13",
+     "trainID": "417"
+    },
+    {
+     "departureDate": "11:39 AM",
+     "destination": "Ridgewood -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "BERG",
+     "status": "",
+     "track": "7",
+     "trainID": "1353"
+    },
+    {
+     "departureDate": "11:45 AM",
+     "destination": "Suffern -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MAIN",
+     "status": "",
+     "track": "17",
+     "trainID": "1113"
+    },
+    {
+     "departureDate": "12:29 PM",
+     "destination": "Spring Valley -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "PASC",
+     "status": "",
+     "track": "3",
+     "trainID": "1613"
+    }
+   ]
+  }
+ }
+}

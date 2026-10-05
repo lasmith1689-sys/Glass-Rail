@@ -1,0 +1,101 @@
+{
+ "data": {
+  "getTripPlannerSchedule": [
+   {
+    "duration": "39 min",
+    "legs": [
+     {
+      "route": "BNTN",
+      "routeType": "C",
+      "sign": "HOBOKEN",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "9:51 AM",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "10:30 AM",
+      "block": "1074"
+     },
+     {
+      "route": "BNTN",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "10:30 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:30 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "53 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "10:13 AM",
+      "offStopDescription": "SECAUCUS UPPER LEVEL",
+      "offStopTime": "10:44 AM",
+      "block": "6222"
+     },
+     {
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": "HOBOKEN",
+      "onStopDescription": "SECAUCUS LOWER LEVEL",
+      "onStopTime": "10:54 AM",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "11:06 AM",
+      "block": "1110"
+     },
+     {
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "11:06 AM",
+      "offStopDescription": null,
+      "offStopTime": "11:06 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "1 hr",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "10:13 AM",
+      "offStopDescription": "SECAUCUS UPPER LEVEL",
+      "offStopTime": "10:44 AM",
+      "block": "6222"
+     },
+     {
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": "HOBOKEN",
+      "onStopDescription": "SECAUCUS LOWER LEVEL",
+      "onStopTime": "11:01 AM",
+      "offStopDescription": "HOBOKEN",
+      "offStopTime": "11:13 AM",
+      "block": "1264"
+     },
+     {
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "HOBOKEN TERMINAL",
+      "onStopTime": "11:13 AM",
+      "offStopDescription": null,
+      "offStopTime": "11:13 AM",
+      "block": null
+     }
+    ]
+   }
+  ]
+ }
+}

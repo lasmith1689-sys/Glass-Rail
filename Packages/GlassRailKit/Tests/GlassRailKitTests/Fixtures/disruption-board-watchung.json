@@ -1,0 +1,179 @@
+{
+ "data": {
+  "getTrainDepartureScreens": {
+   "items": [
+    {
+     "departureDate": "9:05 AM",
+     "destination": "Hoboken",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "in 7 Min",
+     "track": "2",
+     "trainID": "6216"
+    },
+    {
+     "departureDate": "9:45 AM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6227"
+    },
+    {
+     "departureDate": "9:51 AM",
+     "destination": "Hoboken",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "1074"
+    },
+    {
+     "departureDate": "10:13 AM",
+     "destination": "Hoboken",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6222"
+    },
+    {
+     "departureDate": "10:25 AM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6231"
+    },
+    {
+     "departureDate": "11:01 AM",
+     "destination": "Hoboken",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6226"
+    },
+    {
+     "departureDate": "11:09 AM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6233"
+    },
+    {
+     "departureDate": "11:58 AM",
+     "destination": "New York -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6230"
+    },
+    {
+     "departureDate": "12:09 PM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6237"
+    },
+    {
+     "departureDate": "12:58 PM",
+     "destination": "New York -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6234"
+    },
+    {
+     "departureDate": "1:09 PM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6241"
+    },
+    {
+     "departureDate": "1:58 PM",
+     "destination": "New York -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6238"
+    },
+    {
+     "departureDate": "2:09 PM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6245"
+    },
+    {
+     "departureDate": "2:37 PM",
+     "destination": "Dover",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "1001"
+    },
+    {
+     "departureDate": "2:55 PM",
+     "destination": "New York -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6242"
+    },
+    {
+     "departureDate": "3:31 PM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6251"
+    },
+    {
+     "departureDate": "4:09 PM",
+     "destination": "Denville",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "1003"
+    },
+    {
+     "departureDate": "4:27 PM",
+     "destination": "New York -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "2",
+     "trainID": "6246"
+    },
+    {
+     "departureDate": "4:27 PM",
+     "destination": "MSU",
+     "inlineMessage": "",
+     "lineAbbreviation": "MOBO",
+     "status": "",
+     "track": "1",
+     "trainID": "6253"
+    }
+   ]
+  }
+ }
+}

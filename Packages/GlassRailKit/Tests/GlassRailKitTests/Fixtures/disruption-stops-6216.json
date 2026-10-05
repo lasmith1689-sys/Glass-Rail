@@ -1,0 +1,90 @@
+{
+ "data": {
+  "getTrainStopList": [
+   {
+    "name": "Montclair State U",
+    "time": "8:54 AM",
+    "status": "Delayed",
+    "departed": true,
+    "dropOff": ""
+   },
+   {
+    "name": "Montclair Heights",
+    "time": "8:57 AM",
+    "status": "Delayed",
+    "departed": true,
+    "dropOff": ""
+   },
+   {
+    "name": "Mountain Avenue",
+    "time": "9:15 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Upper Montclair",
+    "time": "9:16 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Watchung Avenue",
+    "time": "9:18 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Walnut Street",
+    "time": "9:21 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Bay Street",
+    "time": "9:26 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Glen Ridge",
+    "time": "9:29 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Bloomfield",
+    "time": "9:31 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Watsessing Avenue",
+    "time": "9:33 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Newark Broad Street",
+    "time": "9:40 AM",
+    "status": "Late",
+    "departed": false,
+    "dropOff": ""
+   },
+   {
+    "name": "Hoboken",
+    "time": "9:43 AM",
+    "status": "",
+    "departed": false,
+    "dropOff": ""
+   }
+  ]
+ }
+}

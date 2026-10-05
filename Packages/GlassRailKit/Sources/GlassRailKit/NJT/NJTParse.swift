@@ -10,13 +10,24 @@ public struct BoardEntry: Equatable, Sendable {
     /// The board's destination ("Hoboken", "New York -SEC", "MSU"), which
     /// says which way the train runs through the station.
     public var destination: String?
+    /// The board's countdown to the real departure: "in 7 Min" is 7, "All
+    /// Aboard" or "Boarding" 0. nil when the board shows no countdown.
+    public var countdownMinutes: Int?
 
-    public init(track: String?, note: String?, departureRaw: String?, status: TripStatus?, destination: String? = nil) {
+    public init(
+        track: String?,
+        note: String?,
+        departureRaw: String?,
+        status: TripStatus?,
+        destination: String? = nil,
+        countdownMinutes: Int? = nil
+    ) {
         self.track = track
         self.note = note
         self.departureRaw = departureRaw
         self.status = status
         self.destination = destination
+        self.countdownMinutes = countdownMinutes
     }
 }
 
@@ -166,10 +177,45 @@ public enum NJTParse {
                 note: noteParts.isEmpty ? nil : noteParts.joined(separator: " · "),
                 departureRaw: cleanOrNil(item["departureDate"]),
                 status: parseBoardStatus(item["status"].jsString, item["inlineMessage"].jsString),
-                destination: cleanOrNil(item["destination"])
+                destination: cleanOrNil(item["destination"]),
+                countdownMinutes: parseCountdown(item["status"].jsString)
             )
         }
         return map
+    }
+
+    /// Minutes until the real departure from a board status: "in 7 Min" is 7,
+    /// "All Aboard" or "Boarding" is 0, anything else nil. The countdown runs
+    /// to when the train actually leaves, so "in 10 Min" on a train due now
+    /// means it is 10 minutes late.
+    public static func parseCountdown(_ status: String?) -> Int? {
+        let text = clean(status ?? "").lowercased()
+        if let match = RX.match("^in\\s+(\\d+)\\s*min", text), let minutes = Int(match[1]) {
+            return minutes
+        }
+        if RX.test("all aboard|boarding", text) { return 0 }
+        return nil
+    }
+
+    /// The terminal a train runs to, by its board destination: "hoboken" for
+    /// "Hoboken", "penn" for "New York" or "New York -SEC", nil for anything
+    /// else (Newark, a short trip, or a train leaving the city).
+    public static func servedTerminal(_ destination: String?) -> String? {
+        let text = destination ?? ""
+        if RX.test("hoboken", text, ignoreCase: true) { return "hoboken" }
+        if RX.test("new york|penn", text, ignoreCase: true) { return "penn" }
+        return nil
+    }
+
+    /// Whether a connection can work when its first train runs to `served`
+    /// (see `servedTerminal`). Only New York trains call at Secaucus and Penn
+    /// Station, only Hoboken trains reach Hoboken; every train toward the
+    /// city calls at Newark Broad Street, so a change there always works.
+    public static func connectionFits(_ trip: Trip, firstTrainRunsTo served: String?) -> Bool {
+        guard trip.transferCount > 0, let station = trip.transferAt.first else { return false }
+        if RX.test("secaucus|penn", station, ignoreCase: true) { return served == "penn" }
+        if RX.test("hoboken", station, ignoreCase: true) { return served == "hoboken" }
+        return true
     }
 
     /// True for a board train bound for Hoboken or New York ("Hoboken",
@@ -297,7 +343,9 @@ public enum NJTParse {
                 legTrainIds: legs.map { clean($0["block"]) }.filter { !$0.isEmpty },
                 note: noteParts.isEmpty ? nil : noteParts.joined(separator: " "),
                 status: board?.status,
-                statusNote: board?.note
+                statusNote: board?.note,
+                listedAt: board == nil ? nil : baseNow,
+                countdownMinutes: board?.countdownMinutes
             )
 
             let key = "\(fromId)|\(toId)|\(trainId ?? "na")|\(ISOTime.string(from: departure))"

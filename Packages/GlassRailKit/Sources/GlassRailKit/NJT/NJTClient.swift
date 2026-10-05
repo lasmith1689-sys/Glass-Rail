@@ -42,15 +42,19 @@ public struct NJTClient: Sendable {
     public var clock: @Sendable () -> Date
     /// Answers to per-train lookups, reused across refreshes (see `PlannerCache`).
     public var plannerCache: PlannerCache
+    /// How long to wait before trying a failed request again (see `reply`).
+    public var retryDelay: TimeInterval
 
     public init(
         transport: any NJTTransport = URLSessionTransport(),
         clock: @escaping @Sendable () -> Date = { Date() },
-        plannerCache: PlannerCache = PlannerCache()
+        plannerCache: PlannerCache = PlannerCache(),
+        retryDelay: TimeInterval = 0.4
     ) {
         self.transport = transport
         self.clock = clock
         self.plannerCache = plannerCache
+        self.retryDelay = retryDelay
     }
 
     // MARK: GraphQL
@@ -62,13 +66,38 @@ public struct NJTClient: Sendable {
 
     /// POST a query and return the whole reply once it is known to be JSON
     /// with a 2xx status (checked in v4's order), before looking at `errors`
-    /// or `data`.
+    /// or `data`. A failure that is likely to pass (a dropped connection, a
+    /// 5xx or 429, an HTML error page) is tried once more after `retryDelay`;
+    /// a timeout already waited long enough and is not.
     func reply(query: String, variables: [String: GQLValue]) async throws -> JSON {
         let object: [String: Any] = [
             "query": query,
             "variables": variables.mapValues { $0.jsonObject },
         ]
         let body = try JSONSerialization.data(withJSONObject: object, options: [])
+        do {
+            return try await attempt(body)
+        } catch {
+            guard Self.worthRetrying(error) else { throw error }
+            try? await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+            return try await attempt(body)
+        }
+    }
+
+    static func worthRetrying(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if let urlError = error as? URLError {
+            return urlError.code != .timedOut && urlError.code != .cancelled
+        }
+        switch error as? NJTError {
+        case .http(let status)?: return status == 429 || status >= 500
+        case .notJSON?: return true
+        default: return false
+        }
+    }
+
+    /// One POST, checked as `reply` describes.
+    private func attempt(_ body: Data) async throws -> JSON {
         let response = try await transport.send(body)
         let payload: JSON
         do {
@@ -287,14 +316,18 @@ public struct NJTClient: Sendable {
                         return (index, [], nil)
                     }
                     let window = await plannerWindow(origin: from.plannerName, destination: to.plannerName, offsets: offsets, seeds: seeds)
-                    let trips = NJTParse.normalizeItineraries(
+                    let planned = NJTParse.normalizeItineraries(
                         window.itineraries,
                         fromId: pair.fromId,
                         toId: pair.toId,
                         boardIndex: boards[pair.fromId] ?? [:],
                         baseNow: baseNow
                     )
-                    return (index, trips, window.failed ? window.failureMessage : nil)
+                    let trips = BoardTruth.reconcile(planned, pair: pair, boards: boards, fetchedAt: baseNow)
+                    // Leaving home, the home station's board says which trains
+                    // go, so a planner outage only costs their arrival times.
+                    let answeredByBoard = pair.fromId == UserConfig.homeId && BoardTruth.homeBoardAnswers(homeBoard)
+                    return (index, trips, window.failed && !answeredByBoard ? window.failureMessage : nil)
                 }
             }
             var collected: [Int: ([Trip], String?)] = [:]
@@ -507,12 +540,15 @@ public struct PlannerWindow: Sendable {
     }
 
     /// The window can't be trusted when every lookup failed, or when the
-    /// first one did: that lookup covers the next trains, so without it the
-    /// board would feature a train an hour or more away as "next".
-    /// Later lookups failing only shortens how far ahead the board sees.
+    /// first one did and no per-train lookup answered: the first covers the
+    /// next trains (as do the per-train ones), so without either the board
+    /// would feature a train an hour or more away as "next". Later lookups
+    /// failing only shortens how far ahead the board sees.
     public var failed: Bool {
         guard lookups > 0 else { return false }
-        return failedLookups.count >= lookups || failedLookups.contains(0)
+        let seedsAnswered = seedLookups > failedSeeds
+        if failedLookups.count >= lookups && !seedsAnswered { return true }
+        return failedLookups.contains(0) && !seedsAnswered
     }
 
     /// "Watchung Avenue Station to Hoboken Terminal planner: NJT public feed HTTP 500"

@@ -1,0 +1,101 @@
+{
+ "data": {
+  "getTripPlannerSchedule": [
+   {
+    "duration": "50 min",
+    "legs": [
+     {
+      "route": "BNTN",
+      "routeType": "C",
+      "sign": "HOBOKEN",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "9:51 AM",
+      "offStopDescription": "NEWARK BROAD ST",
+      "offStopTime": "10:12 AM",
+      "block": "1074"
+     },
+     {
+      "route": "MNE",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "NEWARK BROAD ST",
+      "onStopTime": "10:19 AM",
+      "offStopDescription": "NEW YORK PENN STATION",
+      "offStopTime": "10:41 AM",
+      "block": "6328"
+     },
+     {
+      "route": "MNE",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "10:41 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:41 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "43 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "10:13 AM",
+      "offStopDescription": "NEW YORK PENN STATION",
+      "offStopTime": "10:56 AM",
+      "block": "6222"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "10:56 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:56 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "58 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "WATCHUNG AVENUE",
+      "onStopTime": "10:13 AM",
+      "offStopDescription": "SECAUCUS UPPER LEVEL",
+      "offStopTime": "10:44 AM",
+      "block": "6222"
+     },
+     {
+      "route": "RARV",
+      "routeType": "C",
+      "sign": "NEW YORK PENN STATION",
+      "onStopDescription": "SECAUCUS UPPER LEVEL",
+      "onStopTime": "10:58 AM",
+      "offStopDescription": "NEW YORK PENN STATION",
+      "offStopTime": "11:11 AM",
+      "block": "5170"
+     },
+     {
+      "route": "RARV",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "11:11 AM",
+      "offStopDescription": null,
+      "offStopTime": "11:11 AM",
+      "block": null
+     }
+    ]
+   }
+  ]
+ }
+}

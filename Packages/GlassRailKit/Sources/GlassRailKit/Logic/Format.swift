@@ -38,6 +38,13 @@ public enum Format {
         return count == 1 ? "1 transfer" : "\(count) transfers"
     }
 
+    /// "Direct", "1 transfer", or "Ends at Hoboken" for a train that doesn't
+    /// run to the destination today (see `Trip.terminus`).
+    public static func tripType(_ trip: Trip) -> String {
+        if let terminus = trip.terminus { return "Ends at \(terminus)" }
+        return transferLabel(trip.transferCount)
+    }
+
     public static func trackLabel(_ track: String?) -> String {
         if let track, !track.isEmpty { return "Track \(track)" }
         return "Track pending"

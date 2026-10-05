@@ -1,0 +1,81 @@
+{
+ "data": {
+  "getTripPlannerSchedule": [
+   {
+    "duration": "42 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "9:43 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "10:25 AM",
+      "block": "6231"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "10:25 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:25 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "40 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "10:29 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "11:09 AM",
+      "block": "6233"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "11:09 AM",
+      "offStopDescription": null,
+      "offStopTime": "11:09 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "40 min",
+    "legs": [
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "NEW YORK PENN STATION",
+      "onStopTime": "11:29 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "12:09 PM",
+      "block": "6237"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "12:09 PM",
+      "offStopDescription": null,
+      "offStopTime": "12:09 PM",
+      "block": null
+     }
+    ]
+   }
+  ]
+ }
+}

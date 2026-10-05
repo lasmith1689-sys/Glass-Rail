@@ -1,0 +1,125 @@
+{
+ "data": {
+  "getTrainDepartureScreens": {
+   "items": [
+    {
+     "departureDate": "9:17 AM",
+     "destination": "Trenton -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NEC",
+     "status": "DELAYED",
+     "track": "",
+     "trainID": "3917"
+    },
+    {
+     "departureDate": "9:22 AM",
+     "destination": "Summit -SEC",
+     "inlineMessage": "This train is now departing from Hoboken",
+     "lineAbbreviation": "M&E",
+     "status": "CANCELLED",
+     "track": "",
+     "trainID": "6317"
+    },
+    {
+     "departureDate": "9:34 AM",
+     "destination": "Trenton -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NEC",
+     "status": "CANCELLED",
+     "track": "",
+     "trainID": "3831"
+    },
+    {
+     "departureDate": "9:43 AM",
+     "destination": "MSU -SEC",
+     "inlineMessage": "This train is now departing from Hoboken",
+     "lineAbbreviation": "MOBO",
+     "status": "CANCELED",
+     "track": "",
+     "trainID": "6231"
+    },
+    {
+     "departureDate": "9:46 AM",
+     "destination": "Long Branch -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NJCL",
+     "status": "",
+     "track": "",
+     "trainID": "3231"
+    },
+    {
+     "departureDate": "10:01 AM",
+     "destination": "Trenton -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NEC",
+     "status": "",
+     "track": "",
+     "trainID": "3833"
+    },
+    {
+     "departureDate": "10:04 AM",
+     "destination": "Dover -SEC",
+     "inlineMessage": "This train is now departing from Hoboken",
+     "lineAbbreviation": "M&E",
+     "status": "CANCELED",
+     "track": "",
+     "trainID": "6619"
+    },
+    {
+     "departureDate": "10:29 AM",
+     "destination": "MSU -SEC",
+     "inlineMessage": "This train is now departing from Hoboken",
+     "lineAbbreviation": "MOBO",
+     "status": "CANCELED",
+     "track": "",
+     "trainID": "6233"
+    },
+    {
+     "departureDate": "10:33 AM",
+     "destination": "Trenton -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NEC",
+     "status": "",
+     "track": "",
+     "trainID": "3835"
+    },
+    {
+     "departureDate": "10:40 AM",
+     "destination": "Raritan -SEC",
+     "inlineMessage": "",
+     "lineAbbreviation": "RARV",
+     "status": "",
+     "track": "",
+     "trainID": "5121"
+    },
+    {
+     "departureDate": "10:43 AM",
+     "destination": "Long Branch -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NJCL",
+     "status": "",
+     "track": "",
+     "trainID": "3235"
+    },
+    {
+     "departureDate": "10:46 AM",
+     "destination": "Dover -SEC",
+     "inlineMessage": "This train is now departing from Hoboken",
+     "lineAbbreviation": "M&E",
+     "status": "CANCELED",
+     "track": "",
+     "trainID": "6621"
+    },
+    {
+     "departureDate": "11:09 AM",
+     "destination": "Trenton -SEC &#9992",
+     "inlineMessage": "",
+     "lineAbbreviation": "NEC",
+     "status": "",
+     "track": "",
+     "trainID": "3837"
+    }
+   ]
+  }
+ }
+}

@@ -63,7 +63,7 @@ final class NJTParseTests: XCTestCase {
         let index = NJTParse.buildBoardIndex(items)
         XCTAssertEqual(Set(index.keys), ["1074", "1078", "1082", "1086"])
 
-        XCTAssertEqual(index["1074"], BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 09:51:00 AM", status: nil, destination: "Hoboken"))
+        XCTAssertEqual(index["1074"], BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 09:51:00 AM", status: nil, destination: "Hoboken", countdownMinutes: 5))
         XCTAssertEqual(index["1078"], BoardEntry(track: "1", note: "Delayed 6 min · DELAYED", departureRaw: "03-Aug-2026 10:13:00 AM", status: .delayed, destination: "Hoboken"))
         XCTAssertEqual(index["1082"]?.status, .cancelled)
         XCTAssertEqual(index["1082"]?.note, "Bus & rail · Cancelled")

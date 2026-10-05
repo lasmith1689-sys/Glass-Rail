@@ -1,0 +1,111 @@
+{
+ "data": {
+  "getTripPlannerSchedule": [
+   {
+    "duration": "47 min",
+    "legs": [
+     {
+      "route": "MNEG",
+      "routeType": "C",
+      "sign": "GLADSTONE",
+      "onStopDescription": "HOBOKEN",
+      "onStopTime": "9:38 AM",
+      "offStopDescription": "NEWARK BROAD ST",
+      "offStopTime": "9:55 AM",
+      "block": "413"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "NEWARK BROAD ST",
+      "onStopTime": "10:03 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "10:25 AM",
+      "block": "6231"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "10:25 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:25 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "51 min",
+    "legs": [
+     {
+      "route": "PASC",
+      "routeType": "C",
+      "sign": "NEW BRIDGE LANDING",
+      "onStopDescription": "HOBOKEN",
+      "onStopTime": "9:34 AM",
+      "offStopDescription": "SECAUCUS LOWER LEVEL",
+      "offStopTime": "9:44 AM",
+      "block": "1651"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "SECAUCUS UPPER LEVEL",
+      "onStopTime": "9:53 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "10:25 AM",
+      "block": "6231"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "10:25 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:25 AM",
+      "block": null
+     }
+    ]
+   },
+   {
+    "duration": "54 min",
+    "legs": [
+     {
+      "route": "MNBN",
+      "routeType": "C",
+      "sign": "WALDWICK",
+      "onStopDescription": "HOBOKEN",
+      "onStopTime": "9:31 AM",
+      "offStopDescription": "SECAUCUS LOWER LEVEL",
+      "offStopTime": "9:42 AM",
+      "block": "1207"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": "MSU",
+      "onStopDescription": "SECAUCUS UPPER LEVEL",
+      "onStopTime": "9:53 AM",
+      "offStopDescription": "WATCHUNG AVENUE",
+      "offStopTime": "10:25 AM",
+      "block": "6231"
+     },
+     {
+      "route": "BNTNM",
+      "routeType": "C",
+      "sign": null,
+      "onStopDescription": "WATCHUNG AVENUE STATION",
+      "onStopTime": "10:25 AM",
+      "offStopDescription": null,
+      "offStopTime": "10:25 AM",
+      "block": null
+     }
+    ]
+   }
+  ]
+ }
+}

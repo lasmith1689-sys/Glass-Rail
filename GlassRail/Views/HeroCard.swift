@@ -86,7 +86,12 @@ private struct HeroDetails: View {
                 }
                 .padding(.top, 10)
             }
-            if trip.transferCount > 0 {
+            if let terminus = trip.terminus {
+                Text("Ends at \(terminus) today, not \(state.to.shortLabel)")
+                    .grFont(12.5, .semibold, style: .footnote)
+                    .foregroundStyle(theme.ink.opacity(0.9))
+                    .padding(.top, 4)
+            } else if trip.transferCount > 0 {
                 Text(Format.transferLabel(trip.transferCount) + (trip.transferAt.isEmpty ? "" : " at \(trip.transferAt.listed)"))
                     .grFont(12.5, style: .footnote)
                     .foregroundStyle(theme.ink.opacity(0.85))
@@ -106,7 +111,7 @@ private struct HeroDetails: View {
             }
             HStack(spacing: 8) {
                 MetaChip(label: "Service", value: trip.trainId.map { "#\($0)" } ?? "--")
-                MetaChip(label: "Type", value: Format.transferLabel(trip.transferCount))
+                MetaChip(label: "Type", value: trip.terminus == nil ? Format.transferLabel(trip.transferCount) : "Ends early")
                 MetaChip(label: "Track", value: trip.track.map { "Tk \($0)" } ?? "Pending", highlight: view.trackChange != nil)
             }
             .padding(.top, 10)
@@ -175,7 +180,7 @@ private struct HeroDetails: View {
     }
 
     private var trainLine: some View {
-        var text = (trip.trainId.map { "Train \($0)" } ?? "Rail trip") + " to \(state.to.shortLabel)"
+        var text = (trip.trainId.map { "Train \($0)" } ?? "Rail trip") + " to \(trip.terminus ?? state.to.shortLabel)"
         if view.timing == nil, let arrival = view.expectedArrival {
             text += " · arrives \(Format.time(arrival))"
         }

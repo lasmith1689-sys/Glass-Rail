@@ -186,16 +186,23 @@ public enum BoardEngine {
         // ride until shortly after arrival, so the dot can follow the trip.
         let activePinKey = (input.pin?.dirKey == dirKey) ? input.pin?.key : nil
 
-        // Connections that a later trip beats are left out; the pinned one
-        // never is.
+        // Live stop times apply before the departed-train cutoff, so a late
+        // train stays while it's still coming. Connections that a later trip
+        // beats are left out; the pinned one never is.
         let base = Status.hidingDominatedConnections(
-            Status.selectTripViews(payload.trips, fromId: from.id, toId: to.id, now: now, alerts: alerts, changes: activeChanges),
+            Status.selectTripViews(
+                payload.trips,
+                fromId: from.id,
+                toId: to.id,
+                now: now,
+                alerts: alerts,
+                changes: activeChanges,
+                timing: { applyTiming($0, runs: runs, origin: from, dest: to) }
+            ),
             keeping: activePinKey
         )
         let tracked = trackedTrainIds(base: base, pin: input.pin, rideCache: input.rideCache)
         let direction = base
-            .map { applyTiming($0, runs: runs, origin: from, dest: to) }
-            .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
 
         var upcomingIndex: Int? = direction.isEmpty ? nil : 0
         if let activePinKey, let pinnedIndex = direction.firstIndex(where: { $0.key == activePinKey }) {
