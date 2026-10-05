@@ -62,10 +62,29 @@ mark installed
 
 alive() {
   # Read the whole list first: `| grep -q` exits early, launchctl dies of SIGPIPE, and with
-  # pipefail that reads as "not running" even when the app is.
-  local services
+  # pipefail that reads as "not running" even when the app is. A listing that runs out of time
+  # says nothing either way (on a runner where even `simctl status_bar` took over 30 s, it read as
+  # a dead app): ask once more, for longer, and say so.
+  local services status
   services=$(run_limited 30 xcrun simctl spawn "$UDID" launchctl list 2>/dev/null)
+  status=$?
+  if [ "$status" -eq 124 ]; then
+    echo "launchctl list took over 30 s; asking again" >&2
+    services=$(run_limited 90 xcrun simctl spawn "$UDID" launchctl list 2>/dev/null)
+  fi
   [[ "$services" == *"UIKitApplication:$BUNDLE"* ]]
+}
+
+# Why the app isn't running, when the host has a crash report for it (Simulator apps write theirs
+# to the host's DiagnosticReports): its exception and termination, so a dead app says how it died.
+crash_note() {
+  local report
+  report=$(ls -t "$HOME/Library/Logs/DiagnosticReports/"GlassRail*.ips 2>/dev/null | head -1)
+  if [ -z "$report" ]; then
+    echo "no crash report"
+    return
+  fi
+  echo "crash report $(basename "$report"): $(grep -oE '"(exception|termination)" *: *\{[^}]*\}' "$report" | head -2 | tr '\n' ' ' | cut -c1-500)"
 }
 
 # verify <ocr text> <spec>: "Glass Rail" plus every " && "-separated extended regex in <spec> must
@@ -95,14 +114,14 @@ capture() {
   if ! alive; then
     # A slow runner can leave a launch unfinished (simctl itself timing out): launch once more,
     # and say so, before calling it a failure. A crash at launch fails again.
-    echo "::notice title=Smoke test::$name: not running ${wait}s after launch (simctl: $(printf '%s' "$launched" | tr '\n' ' ' | cut -c1-200)); launching once more"
+    echo "::notice title=Smoke test::$name: not running ${wait}s after launch (simctl: $(printf '%s' "$launched" | tr '\n' ' ' | cut -c1-200); $(crash_note)); launching once more"
     launched=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" 2>&1)
     sleep "$wait"
   fi
   local attempt passed=0 text="$OUT/ocr/$name.txt"
   for attempt in 1 2 3 4 5; do
     if ! alive; then
-      echo "::error title=Smoke test::Glass Rail is not running ($name $*)"
+      echo "::error title=Smoke test::Glass Rail is not running ($name $*; $(crash_note))"
       failures=$((failures + 1))
       return
     fi

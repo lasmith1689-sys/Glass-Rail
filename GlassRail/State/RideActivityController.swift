@@ -142,9 +142,11 @@ final class RideActivityController {
         Task {
             for (activity, content, policy, how) in jobs {
                 await activity.end(content, dismissalPolicy: policy)
-                // Logged once ActivityKit has returned, with the state it left
-                // the activity in (CI's smoke test checks this line).
-                let result = Self.describe(activity.activityState)
+                // Logged once ActivityKit has returned and caught up, with
+                // the state it left the activity in (CI's smoke test checks
+                // this line).
+                let settled = await Self.settledState(of: activity)
+                let result = Self.describe(settled)
                 Self.log.notice("Live Activity ended on suspend: \(activity.attributes.key, privacy: .public), \(how, privacy: .public), state \(result, privacy: .public)")
             }
             if taskId != .invalid {
@@ -164,9 +166,22 @@ final class RideActivityController {
     private func end(_ activity: Activity<RideActivityAttributes>, reason: String) {
         Task {
             await activity.end(nil, dismissalPolicy: .immediate)
-            let result = Self.describe(activity.activityState)
+            let settled = await Self.settledState(of: activity)
+            let result = Self.describe(settled)
             Self.log.notice("Live Activity ended: \(activity.attributes.key, privacy: .public) (\(reason, privacy: .public)), state \(result, privacy: .public)")
         }
+    }
+
+    /// The activity's state once ActivityKit has caught up with an end call.
+    /// It can still read "active" for a moment after `end` returns (CI's
+    /// slowest runner logged that), so look again for up to `limit`.
+    private static func settledState(of activity: Activity<RideActivityAttributes>, limit: Duration = .seconds(10)) async -> ActivityState {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: limit)
+        while activity.activityState == .active || activity.activityState == .stale, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return activity.activityState
     }
 
     nonisolated private static func describe(_ state: ActivityState) -> String {
