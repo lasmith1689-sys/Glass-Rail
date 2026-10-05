@@ -89,6 +89,7 @@ final class BoardModel {
             }
             if let snapshot = store.snapshot,
                snapshot.payload.source.kind == .live,
+               snapshot.payload.trips.isEmpty || snapshot.payload.trips.contains(where: { $0.fromId == UserConfig.homeId || $0.toId == UserConfig.homeId }),
                Date().timeIntervalSince(snapshot.payload.generatedAt) < Self.warmStartLimit {
                 payload = snapshot.payload
                 runs = snapshot.runs
@@ -119,7 +120,7 @@ final class BoardModel {
                 self?.tick()
             }
         })
-        if let sheet = LaunchOptions.sheet.flatMap(ActiveSheet.init(rawValue:)) {
+        if let sheet = LaunchOptions.sheet.flatMap({ $0 == "home" ? ActiveSheet.settings : ActiveSheet(rawValue: $0) }) {
             loops.append(Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(1200))
                 self?.activeSheet = sheet
@@ -169,6 +170,12 @@ final class BoardModel {
     private func loadLive() async {
         guard demo == nil, !fetchingPayload else { return }
         fetchingPayload = true
+        let home = UserConfig.homeId
+        defer {
+            // The rider chose another home while this was in flight: its
+            // answer was for the old one, so ask again.
+            if home != UserConfig.homeId { Task { await loadLive() } }
+        }
         do {
             // Only the direction on screen has to refresh. Any other direction
             // whose lookup fails keeps its previous trips, which age (and turn
@@ -177,6 +184,10 @@ final class BoardModel {
                 required: [shownPair.key],
                 previous: payload?.source.kind == .live ? payload : nil
             )
+            guard home == UserConfig.homeId else {
+                fetchingPayload = false
+                return
+            }
             let at = Date()
             trackState.ingest(fresh, now: at)
             payload = fresh
@@ -185,6 +196,10 @@ final class BoardModel {
             persistSnapshot()
             reloadWidgetsIfDue()
         } catch {
+            guard home == UserConfig.homeId else {
+                fetchingPayload = false
+                return
+            }
             // The direction on screen didn't refresh. Keep showing the last
             // live data (it turns STALE after two misses); with nothing to
             // show at all, fall back to the bundled sample, always labeled
@@ -384,6 +399,31 @@ final class BoardModel {
     func followHero() {
         guard let hero = state?.hero else { return }
         pinTrip(hero)
+    }
+
+    /// The rider's home station (Settings).
+    var homeId: String { UserConfig.homeId }
+    var home: Station { UserConfig.home }
+
+    /// Settings › Home station: start over from the new home, without the old
+    /// one's trips, pin, stop lists or saved board, and fetch it straight away.
+    func selectHome(_ id: String) {
+        guard demo == nil, id != UserConfig.homeId else {
+            activeSheet = nil
+            return
+        }
+        HomeStation.set(id)
+        releasePin()
+        payload = nil
+        runs = [:]
+        trackState = TrackState()
+        watcher = DepartureWatcher()
+        fetchFailures = 0
+        store.snapshot = nil
+        activeSheet = nil
+        recompute()
+        reloadWidgetsIfDue(force: true)
+        Task { await refresh() }
     }
 
     /// "Pinned · show next".

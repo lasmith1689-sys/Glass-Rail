@@ -117,7 +117,7 @@ private struct LoadingCard: View {
                 Text("Checking NJ Transit")
                     .grFont(15.7, .semibold, style: .headline)
             }
-            Text("Live departures for Watchung Ave, Hoboken and Penn Station NY.")
+            Text("Live departures for \(UserConfig.home.shortLabel), Hoboken and Penn Station NY.")
                 .grFont(12.5, style: .footnote)
                 .foregroundStyle(theme.ink.opacity(0.75))
         }

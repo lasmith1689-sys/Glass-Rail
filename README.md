@@ -1,7 +1,8 @@
 # Glass Rail
 
-A clean, fast read on the next NJ Transit train between Watchung Avenue and Hoboken or Penn Station
-NY, as a native iPhone app with Home Screen and Lock Screen widgets.
+A clean, fast read on the next NJ Transit train between your station (Watchung Avenue unless you
+choose another) and Hoboken or Penn Station NY, as a native iPhone app with Home Screen and Lock
+Screen widgets.
 
 This is the SwiftUI rebuild of the Glass Rail web app (v4.2, "status intelligence"). The board logic
 is a line-by-line Swift port of v4's `lib/`, and v4's whole test suite is ported with it, so the app
@@ -13,6 +14,12 @@ is, and when to say a train has departed.
 - **Direction by clock.** Toward the city until 2 PM Eastern, home after. The flip button overrides
   it until the clock next crosses 2 PM or midnight. The route bar shows AM or PM.
 - **Hoboken / Penn toggle** (HOB / NYP), remembered, and shared with the widgets.
+- **Home station** in Settings: Watchung Avenue by default, or any of NJ Transit's 160-odd rail
+  stations, searchable by name or line, for a friend on another line. Trips run between it and
+  Hoboken or Penn Station NY, its travel alerts follow its lines, and the widgets follow it; Bay
+  Street stays Watchung Avenue's weekend fallback only. The catalog (`Model/StationCatalog.swift`)
+  was built from the stop lists of 216 trains across every line on 5 October 2026, and each
+  station's board name and trip planner name was accepted by NJ Transit's live feed.
 - **Hero card** for the next train: the true pickup time as the big number, "Originally H:MM" when
   it is late, a countdown, `DELAYED Nm`, `CANCELLED` and `TRACK CHANGED` badges ("Track 2 → 3"), and
   an "On time" chip when the board says so.
@@ -213,7 +220,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 293 tests: v4's 138 vitest cases, one XCTest each, plus 155 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 297 tests: v4's 138 vitest cases, one XCTest each, plus 159 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -273,7 +280,7 @@ launch arguments (used by CI's smoke test):
 | `-GlassRailDemo stale` | Old live data |
 | `-GlassRailDemo sample` | Sample data (never late, never on time, no track change) |
 | `-GlassRailDemo riding` | A pinned train mid-ride, which then drops off the feed |
-| `-GlassRailSheet later\|stops\|settings\|alerts` | Opens that sheet |
+| `-GlassRailSheet later\|stops\|settings\|alerts\|home` | Opens that sheet (`home`: Settings at the home station picker) |
 | `-GlassRailAlerts YES` | Gives a QA scenario two NJ Transit travel alerts |
 | `-GlassRailWidgetGallery YES` | The widget layouts and the Live Activity's Lock Screen layout, rendered in the app |
 | `-GlassRailTheme midnight` | A theme, without saving it |

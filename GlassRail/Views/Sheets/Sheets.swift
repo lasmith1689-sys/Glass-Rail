@@ -6,11 +6,16 @@ struct SheetHeader: View {
     let kicker: String
     let title: String
     var count: Int?
+    /// Shows a back button (a page inside the sheet).
+    var onBack: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(spacing: 12) {
+            if let onBack {
+                GlassIconButton(systemImage: "chevron.left", label: "Back", size: 32, action: onBack)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(kicker).kicker()
                 HStack(spacing: 6) {
@@ -364,13 +369,41 @@ struct StopRow: View {
 struct SettingsSheet: View {
     @Environment(BoardModel.self) private var model
     @Environment(\.theme) private var theme
+    @State private var choosingHome = LaunchOptions.sheet == "home"
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
+        if choosingHome {
+            HomeStationPicker(
+                currentId: model.homeId,
+                onChoose: { id in model.selectHome(id) },
+                onBack: { withAnimation(.snappy) { choosingHome = false } }
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        } else {
+            settings
+                .transition(.move(edge: .leading).combined(with: .opacity))
+        }
+    }
+
+    private var settings: some View {
         VStack(spacing: 0) {
-            SheetHeader(kicker: "Settings", title: "Choose a look")
+            SheetHeader(kicker: "Glass Rail", title: "Settings")
             ScrollView {
+                Text("Home station").kicker()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                HomeStationRow(station: model.home) {
+                    withAnimation(.snappy) { choosingHome = true }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+                Text("Choose a look").kicker()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(Theme.all) { option in
                         ThemeTile(option: option, active: option.id == theme.id) {
@@ -387,6 +420,142 @@ struct SettingsSheet: View {
                     .padding(.bottom, 16)
             }
             .scrollIndicators(.hidden)
+        }
+    }
+}
+
+/// The home station in Settings: where every trip starts or ends.
+struct HomeStationRow: View {
+    let station: Station
+    let action: () -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(station.name)
+                        .grFont(15.2, .semibold, style: .headline, maxScale: 1.4)
+                    Text(station.id == UserConfig.defaultHomeId ? "Default · trains to Hoboken and Penn Station NY" : "Trains to Hoboken and Penn Station NY")
+                        .grFont(11.5, style: .caption, maxScale: 1.4)
+                        .foregroundStyle(theme.ink.opacity(0.75))
+                }
+                Spacer(minLength: 0)
+                Text("Change")
+                    .grFont(12.5, .semibold, style: .footnote, maxScale: 1.4)
+                    .foregroundStyle(theme.ink.opacity(0.85))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.ink.opacity(0.6))
+            }
+            .padding(14)
+            .contentShape(Rectangle())
+            .insetPanel(radius: 16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Home station, \(station.name)")
+        .accessibilityHint("Choose another station")
+    }
+}
+
+/// Any NJ Transit rail station as home, Watchung Avenue first (the default).
+struct HomeStationPicker: View {
+    let currentId: String
+    let onChoose: (String) -> Void
+    let onBack: () -> Void
+    @State private var query = ""
+    @Environment(\.theme) private var theme
+
+    private var stations: [Station] {
+        let words = query.lowercased().split(separator: " ").map(String.init)
+        let all = Stations.homeChoices.filter { $0.id == UserConfig.defaultHomeId }
+            + Stations.homeChoices.filter { $0.id != UserConfig.defaultHomeId }
+        guard !words.isEmpty else { return all }
+        return all.filter { station in
+            let text = "\(station.name) \(station.plannerName) \(station.lineTitles.joined(separator: " "))".lowercased()
+            return words.allSatisfy { text.contains($0) }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SheetHeader(kicker: "Settings", title: "Home station", onBack: onBack)
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.ink.opacity(0.6))
+                    .accessibilityHidden(true)
+                TextField("Search stations or lines", text: $query)
+                    .grFont(14, style: .subheadline)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .insetPanel(radius: 14)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(stations) { station in
+                        Button {
+                            onChoose(station.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(station.name)
+                                            .grFont(14.4, .semibold, style: .subheadline, maxScale: 1.4)
+                                        if station.id == UserConfig.defaultHomeId {
+                                            Text("Default")
+                                                .grFont(10, .bold, style: .caption2, maxScale: 1.3)
+                                                .tracking(0.5)
+                                                .textCase(.uppercase)
+                                                .foregroundStyle(theme.ink.opacity(0.7))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .pillSurface()
+                                        }
+                                    }
+                                    Text(station.lineTitles.joined(separator: " · "))
+                                        .grFont(11.5, style: .caption, maxScale: 1.4)
+                                        .foregroundStyle(theme.ink.opacity(0.7))
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                                if station.id == currentId {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(Color(hex: 0x059669))
+                                        .accessibilityLabel("Current")
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(RowPress())
+                    }
+                    if stations.isEmpty {
+                        Text("No NJ Transit rail station matches “\(query)”.")
+                            .grFont(13.1, style: .subheadline)
+                            .foregroundStyle(theme.ink.opacity(0.75))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                    }
+                    Text("Trips run between your station and Hoboken or Penn Station NY. The widgets follow it.")
+                        .grFont(11.5, style: .caption)
+                        .foregroundStyle(theme.ink.opacity(0.7))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.immediately)
         }
     }
 }

@@ -12,7 +12,8 @@ enum LaunchOptions {
         DemoScenario.parse(defaults.string(forKey: "GlassRailDemo"))
     }
 
-    /// Open this sheet on launch: `later`, `stops`, `settings` or `alerts`.
+    /// Open this sheet on launch: `later`, `stops`, `settings`, `alerts`, or
+    /// `home` (Settings at its home station picker).
     static var sheet: String? {
         defaults.string(forKey: "GlassRailSheet")
     }
