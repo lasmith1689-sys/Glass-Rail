@@ -22,6 +22,17 @@ public enum Format {
         return remainder != 0 ? "in \(hours)h \(remainder)m" : "in \(hours)h"
     }
 
+    /// "Just left", "12m ago", "1h 5m ago": how long ago a train left, in the
+    /// countdown's terms and rounding, short enough for a row's time column.
+    public static func leftAgo(_ departure: Date, now: Date) -> String {
+        let minutes = jsRound((now.epochMs - departure.epochMs) / 60_000)
+        if minutes <= 0 { return "Just left" }
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder != 0 ? "\(hours)h \(remainder)m ago" : "\(hours)h ago"
+    }
+
     /// "Fresh 12s ago", "Updated 4m ago", "Updated 2h ago".
     public static func freshness(generatedAt: Date, now: Date) -> String {
         let ageMs = max(0, now.epochMs - generatedAt.epochMs)

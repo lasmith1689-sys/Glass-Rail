@@ -41,7 +41,7 @@ is, and when to say a train has departed.
   ride.
 - **"On a train that's already left?"**, a quiet line at the top of the Later sheet, for a ride
   started without pinning: it opens to the trains this way that left in the last 75 minutes and
-  haven't arrived (most recent first, "Left 12 min ago", when each gets in), and tapping one
+  haven't arrived (most recent first, "12m ago", when each gets in), and tapping one
   follows it exactly as if it had been pinned before it left. NJ Transit stops listing a train once
   it leaves, so they come from the app's earlier refreshes (and its last saved board, so they're
   there without signal) and, when the line is opened, from three planner lookups leaving 70, 45
@@ -245,7 +245,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 308 tests: v4's 138 vitest cases, one XCTest each, plus 170 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 309 tests: v4's 138 vitest cases, one XCTest each, plus 171 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |

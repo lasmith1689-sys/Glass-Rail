@@ -33,6 +33,17 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.countdown(to: now.addingTimeInterval(120 * 60), now: now), "in 2h")
     }
 
+    /// The Later sheet's "already left" rows, in the countdown's own terms.
+    func testLeftAgoMirrorsTheCountdown() {
+        let now = date("2026-08-03T13:00:00.000Z")
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(60), now: now), "Just left") // clock skew
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(-29), now: now), "Just left") // rounds to 0
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(-30), now: now), "1m ago") // JS rounds halves up
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(-12 * 60), now: now), "12m ago")
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(-75 * 60), now: now), "1h 15m ago")
+        XCTAssertEqual(Format.leftAgo(now.addingTimeInterval(-120 * 60), now: now), "2h ago")
+    }
+
     func testFreshnessMatchesV4() {
         let now = date("2026-08-03T13:00:00.000Z")
         XCTAssertEqual(Format.freshness(generatedAt: now.addingTimeInterval(-12), now: now), "Fresh 12s ago")

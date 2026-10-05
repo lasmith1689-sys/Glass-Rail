@@ -193,14 +193,7 @@ struct EarlierRideRow: View {
     var body: some View {
         Button(action: onFollow) {
             HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Format.time(view.expectedDeparture))
-                        .grFont(16, .semibold, style: .headline, maxScale: 1.4, digits: true)
-                    Text(leftAgo)
-                        .grFont(11.2, style: .caption, maxScale: 1.4, digits: true)
-                        .foregroundStyle(theme.ink.opacity(0.72))
-                }
-                .frame(minWidth: 62, alignment: .leading)
+                TimeColumn(time: view.expectedDeparture, caption: Format.leftAgo(view.expectedDeparture, now: now))
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 0) {
@@ -235,12 +228,6 @@ struct EarlierRideRow: View {
         .accessibilityHint("Follows this train on the main card")
     }
 
-    /// "Left 12 min ago".
-    private var leftAgo: String {
-        let minutes = max(0, Int(now.timeIntervalSince(view.expectedDeparture) / 60))
-        return minutes < 1 ? "Just left" : "Left \(minutes) min ago"
-    }
-
     private var accessibilityText: String {
         var text = "Train \(trip.trainId ?? "trip"), left \(Format.time(view.expectedDeparture))"
         if let arrival = view.expectedArrival { text += ", arrives \(Format.time(arrival))" }
@@ -268,14 +255,7 @@ struct LaterRow: View {
     var body: some View {
         Button(action: onPin) {
             HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Format.time(view.expectedDeparture))
-                        .grFont(16, .semibold, style: .headline, maxScale: 1.4, digits: true)
-                    Text(Format.countdown(to: view.expectedDeparture, now: now))
-                        .grFont(11.2, style: .caption, maxScale: 1.4, digits: true)
-                        .foregroundStyle(theme.ink.opacity(0.72))
-                }
-                .frame(minWidth: 62, alignment: .leading)
+                TimeColumn(time: view.expectedDeparture, caption: Format.countdown(to: view.expectedDeparture, now: now))
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 0) {
@@ -356,6 +336,31 @@ struct LaterRow: View {
         if view.cancelled { text += ", cancelled" }
         if let track = trip.track { text += ", track \(track)" }
         return text
+    }
+}
+
+/// A Later-sheet row's first column: the departure time over a short line.
+/// It's always as wide as the widest time ("00:00 AM"), so every row's train
+/// details start at the same x, whether the hour is 9 or 10 and whether the
+/// line under it says "in 40m" or "12m ago".
+struct TimeColumn: View {
+    let time: Date
+    let caption: String
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ZStack(alignment: .leading) {
+                Text(verbatim: "00:00 AM")
+                    .hidden()
+                    .accessibilityHidden(true)
+                Text(Format.time(time))
+            }
+            .grFont(16, .semibold, style: .headline, maxScale: 1.4, digits: true)
+            Text(caption)
+                .grFont(11.2, style: .caption, maxScale: 1.4, digits: true)
+                .foregroundStyle(theme.ink.opacity(0.72))
+        }
     }
 }
 
