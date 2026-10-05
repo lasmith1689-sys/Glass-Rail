@@ -288,6 +288,27 @@ public struct NJTClient: Sendable {
         return times.sorted().prefix(limit).map { PlannerSeed(at: $0, arriveBy: !leavingHome) }
     }
 
+    /// Trips `pair` leaving in the last hour or so, for a rider who boarded
+    /// without pinning ("On a train that's already left?"): planner lookups
+    /// leaving `NJTQueries.recentRideLookbackMinutes` ago, asked only on
+    /// demand. A lookup that fails is left out; nothing here fails a refresh.
+    public func fetchRecentTrips(for pair: ODPair) async -> [Trip] {
+        guard let from = Stations.station(pair.fromId), let to = Stations.station(pair.toId) else { return [] }
+        let base = clock()
+        let itineraries = await withTaskGroup(of: [JSON].self) { group -> [JSON] in
+            for minutes in NJTQueries.recentRideLookbackMinutes {
+                group.addTask {
+                    let at = base.addingTimeInterval(-Double(minutes) * 60)
+                    return (try? await fetchTripPlanner(origin: from.plannerName, destination: to.plannerName, at: at)) ?? []
+                }
+            }
+            var all: [JSON] = []
+            for await list in group { all.append(contentsOf: list) }
+            return all
+        }
+        return NJTParse.normalizeItineraries(itineraries, fromId: pair.fromId, toId: pair.toId, boardIndex: [:], baseNow: base)
+    }
+
     /// The itineraries from `plannerWindow`, for callers that only need them.
     public func fetchTripPlannerWindow(origin: String, destination: String) async -> [JSON] {
         await plannerWindow(origin: origin, destination: destination).itineraries

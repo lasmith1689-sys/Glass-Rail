@@ -153,6 +153,18 @@ do {
     notice("app refresh timing FAILED", error.localizedDescription)
 }
 
+// 3d. "On a train that's already left?": what the app finds for the last
+// hour this way when the rider opens it (informational).
+do {
+    let shown = BoardEngine.shownPair(now: Date(), destinationId: "hoboken", modeOverride: nil)
+    let found = await client.fetchRecentTrips(for: shown)
+    let rides = BoardEngine.recentRides(found, fromId: shown.fromId, toId: shown.toId, now: Date(), alerts: true)
+    let listed = rides.map { ride in
+        "\(ride.trip.trainId ?? "?") left \(Format.time(ride.expectedDeparture))" + (ride.expectedArrival.map { ", arrives \(Format.time($0))" } ?? "")
+    }
+    notice("recent rides", "\(shown.key): \(found.count) trips from the last hour's lookups, \(rides.count) still under way" + (listed.isEmpty ? "" : ": " + listed.joined(separator: "; ")))
+}
+
 // 4. One stop list, raw and parsed.
 if let train = firstTrain {
     do {

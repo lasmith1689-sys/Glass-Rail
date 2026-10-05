@@ -140,6 +140,56 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(compute(payload(weekday), failures: 2).feedMode, .stale)
     }
 
+    // MARK: A ride started without pinning
+
+    func testTrainsThatLeftInTheLastHourAndHaventArrivedCanBeFollowed() {
+        let left12 = trip("1070", "watchung", "hoboken", at(morning, -12), track: "2") // arrives in 27
+        let justIn = trip("1066", "watchung", "hoboken", at(morning, -40)) // arrived a minute ago
+        let arrived = trip("1062", "watchung", "hoboken", at(morning, -50)) // arrived 11 minutes ago
+        let otherWay = trip("1201", "hoboken", "watchung", at(morning, -10))
+        let cancelled = trip("1068", "watchung", "hoboken", at(morning, -20), status: .cancelled)
+        // From an earlier refresh: NJ Transit no longer lists it.
+        let remembered = trip("6218", "watchung", "hoboken", at(morning, -30), duration: 60, transfers: ["Secaucus"], legs: ["6218", "1172"])
+        let state = BoardEngine.compute(BoardInputs(
+            payload: payload(weekday + [left12, justIn, arrived, otherWay, cancelled]),
+            now: morning,
+            destinationId: "hoboken",
+            recentTrips: [remembered]
+        ))
+        XCTAssertEqual(state.recentRides.map(\.trip.trainId), ["1070", "6218", "1066"], "most recent first")
+        XCTAssertEqual(state.hero?.trip.trainId, "1074", "the board still features the next train")
+        XCTAssertFalse(state.riding)
+    }
+
+    func testFollowingATrainThatAlreadyLeftRidesIt() {
+        let left12 = trip("1070", "watchung", "hoboken", at(morning, -12), track: "2")
+        let pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1070")
+        let state = BoardEngine.compute(BoardInputs(
+            payload: payload(weekday),
+            now: morning,
+            destinationId: "hoboken",
+            pin: pin,
+            rideCache: RideCache(key: pin.key, trip: left12),
+            recentTrips: [left12]
+        ))
+        XCTAssertEqual(state.hero?.trip.trainId, "1070")
+        XCTAssertTrue(state.riding)
+        XCTAssertTrue(state.isPinned)
+        XCTAssertEqual(state.recentRides.map(\.trip.trainId), [], "the ride being followed is on the main card")
+    }
+
+    func testOneRowPerTrainAndOnlyTheLastHourAndAQuarter() {
+        let direct = trip("1070", "watchung", "penn", at(morning, -12), duration: 50)
+        let viaSecaucus = trip("1070", "watchung", "penn", at(morning, -12), duration: 45, transfers: ["Secaucus"], legs: ["1070", "3850"])
+        let rides = BoardEngine.recentRides([viaSecaucus, direct], fromId: "watchung", toId: "penn", now: morning, alerts: true)
+        XCTAssertEqual(rides.count, 1)
+        XCTAssertEqual(rides.first?.trip.transferCount, 0)
+        let long = trip("5501", "watchung", "hoboken", at(morning, -80), duration: 100) // still riding, but left too long ago
+        XCTAssertEqual(BoardEngine.recentRides([long], fromId: "watchung", toId: "hoboken", now: morning, alerts: true), [])
+        let upcoming = trip("1074", "watchung", "hoboken", at(morning, 10))
+        XCTAssertEqual(BoardEngine.recentRides([upcoming], fromId: "watchung", toId: "hoboken", now: morning, alerts: true), [])
+    }
+
     // MARK: Pins and rides
 
     func testAPinnedLaterTrainTakesOverTheHero() {

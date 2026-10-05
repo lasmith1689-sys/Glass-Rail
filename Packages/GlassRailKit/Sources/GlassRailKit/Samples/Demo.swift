@@ -11,6 +11,9 @@ public enum DemoScenario: String, CaseIterable, Sendable {
     case stale
     case sample
     case riding
+    /// On 1074, which left 12 minutes ago, without having pinned it: the
+    /// Later sheet's "On a train that's already left?" offers it.
+    case boarded
 
     public static func parse(_ value: String?) -> DemoScenario? {
         guard let value else { return nil }
@@ -24,7 +27,7 @@ public enum DemoScenario: String, CaseIterable, Sendable {
         case .track: return 4
         case .riding: return 6
         case .departed: return 12
-        case .delayed, .stale, .sample: return nil
+        case .delayed, .stale, .sample, .boarded: return nil
         }
     }
 }
@@ -103,6 +106,11 @@ public enum Demo {
             // planner does once a train has left. The board must keep it.
             trips = baseTrips(now: now, hero: HeroPatch(track: "2"), heroDepMins: -12)
             if step == 1 { trips = trips.filter { $0.trainId != "1074" } }
+        case .boarded:
+            // The riding scenario's trips, nothing pinned: the board features
+            // 1078, and 1074 (left 12 minutes ago, arrives in 27) is a ride
+            // the rider can still follow.
+            trips = baseTrips(now: now, hero: HeroPatch(track: "2"), heroDepMins: -12)
         }
 
         return Payload(

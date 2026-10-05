@@ -16,6 +16,7 @@ final class DemoTests: XCTestCase {
         XCTAssertEqual(DemoScenario.parse("stale"), .stale)
         XCTAssertEqual(DemoScenario.parse("sample"), .sample)
         XCTAssertEqual(DemoScenario.parse("riding"), .riding)
+        XCTAssertEqual(DemoScenario.parse("boarded"), .boarded)
         XCTAssertNil(DemoScenario.parse("nonsense"))
         XCTAssertNil(DemoScenario.parse(nil))
     }
@@ -123,5 +124,18 @@ final class DemoTests: XCTestCase {
         // The inbound tail includes at least one departed stop so "Past X" is
         // demonstrable before boarding.
         XCTAssertTrue(stops.contains { $0.departed })
+    }
+
+    // MARK: Boarded without pinning
+
+    func testTheBoardedScenarioOffersTheRideThatLeftWithoutPinningIt() {
+        let payload = Demo.payload(.boarded, step: 0, now: now)
+        let state = BoardEngine.compute(BoardInputs(
+            payload: payload, now: now, destinationId: "hoboken", modeOverride: ModeOverride(mode: .am, at: now)
+        ))
+        XCTAssertEqual(state.hero?.trip.trainId, "1078")
+        XCTAssertFalse(state.isPinned)
+        XCTAssertEqual(state.recentRides.first?.trip.trainId, "1074")
+        XCTAssertEqual(state.recentRides.first?.expectedDeparture, now.addingTimeInterval(-12 * 60))
     }
 }

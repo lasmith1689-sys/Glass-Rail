@@ -34,6 +34,8 @@ final class BoardModel {
     private(set) var theme: Theme
     /// Bumped whenever a refresh the rider asked for finishes (drives a haptic).
     private(set) var refreshCount = 0
+    /// "On a train that's already left?" is asking NJ Transit.
+    private(set) var loadingRecentRides = false
     var activeSheet: ActiveSheet?
 
     let demo: DemoScenario?
@@ -53,6 +55,10 @@ final class BoardModel {
     /// When the current pin was set (restored with it at launch).
     @ObservationIgnored private var pinnedAt: Date?
     @ObservationIgnored private var catchUpScheduled = false
+    /// Trips from earlier refreshes (and the last saved board) that have since
+    /// left, plus any asked for: NJ Transit stops listing a train once it
+    /// leaves, and there may be no signal on board. Feeds `recentRides`.
+    @ObservationIgnored private var recentTrips: [Trip] = []
 
     /// How often the board polls NJ Transit, like v4.
     static let refreshInterval: Duration = .seconds(60)
@@ -93,6 +99,9 @@ final class BoardModel {
                Date().timeIntervalSince(snapshot.payload.generatedAt) < Self.warmStartLimit {
                 payload = snapshot.payload
                 runs = snapshot.runs
+            } else if let snapshot = store.snapshot, snapshot.payload.source.kind == .live {
+                // Too old to show, but it may know the train the rider boarded.
+                rememberRecent(snapshot.payload.trips, now: Date())
             }
         }
         recompute()
@@ -120,7 +129,7 @@ final class BoardModel {
                 self?.tick()
             }
         })
-        if let sheet = LaunchOptions.sheet.flatMap({ $0 == "home" ? ActiveSheet.settings : ActiveSheet(rawValue: $0) }) {
+        if let sheet = LaunchOptions.sheet.flatMap({ $0 == "home" ? ActiveSheet.settings : $0 == "earlier" ? ActiveSheet.later : ActiveSheet(rawValue: $0) }) {
             loops.append(Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(1200))
                 self?.activeSheet = sheet
@@ -190,6 +199,7 @@ final class BoardModel {
             }
             let at = Date()
             trackState.ingest(fresh, now: at)
+            if payload?.source.kind == .live { rememberRecent(payload?.trips ?? [], now: at) }
             payload = fresh
             fetchFailures = 0
             now = at
@@ -305,7 +315,8 @@ final class BoardModel {
             pin: pin,
             rideCache: rideCache,
             trackChanges: trackState.changes,
-            fetchFailures: fetchFailures
+            fetchFailures: fetchFailures,
+            recentTrips: recentTrips
         )
         var next = BoardEngine.compute(inputs)
         // v4 kept hold of the pinned trip during render; so do we, for as long
@@ -394,6 +405,31 @@ final class BoardModel {
         recompute()
     }
 
+    /// "On a train that's already left?" (the Later sheet): ask NJ Transit for
+    /// this way's trips of the last hour, on top of those remembered, so the
+    /// rider can pick the train they boarded without pinning.
+    func loadRecentRides() async {
+        guard demo == nil, !loadingRecentRides, let state else { return }
+        loadingRecentRides = true
+        let found = await client.fetchRecentTrips(for: ODPair(fromId: state.from.id, toId: state.to.id))
+        loadingRecentRides = false
+        rememberRecent(found, now: Date())
+        recompute()
+    }
+
+    /// Keep the trips that have left within the last hour and a half (beyond
+    /// `BoardEngine.recentRideWindow`), one per train and departure, newest
+    /// data winning; forget the rest.
+    private func rememberRecent(_ trips: [Trip], now: Date) {
+        let since = now.addingTimeInterval(-BoardEngine.recentRideWindow - 15 * 60)
+        var kept: [String: Trip] = [:]
+        for trip in recentTrips + trips where trip.departure >= since && trip.departure < now {
+            guard let key = Status.tripKey(trip) else { continue }
+            kept["\(key)|\(trip.departure.timeIntervalSince1970)"] = trip
+        }
+        recentTrips = Array(kept.values)
+    }
+
     /// The follow button on the main card: pin the featured train itself, Live
     /// Activity and all (v4 could only pin a later train).
     func followHero() {
@@ -416,6 +452,7 @@ final class BoardModel {
         releasePin()
         payload = nil
         runs = [:]
+        recentTrips = []
         trackState = TrackState()
         watcher = DepartureWatcher()
         fetchFailures = 0

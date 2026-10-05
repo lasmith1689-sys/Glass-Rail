@@ -48,6 +48,8 @@ struct SheetHeader: View {
 /// Every later train this way. Tapping one pins it to the main card.
 struct LaterSheet: View {
     @Environment(BoardModel.self) private var model
+    /// "On a train that's already left?" is open.
+    @State private var showingEarlier = LaunchOptions.sheet == "earlier"
 
     var body: some View {
         let state = model.state
@@ -60,6 +62,18 @@ struct LaterSheet: View {
             )
             ScrollView {
                 LazyVStack(spacing: 2) {
+                    EarlierToggle(expanded: showingEarlier) {
+                        withAnimation(.snappy) { showingEarlier.toggle() }
+                    }
+                    if showingEarlier {
+                        EarlierRides(
+                            rides: state?.recentRides ?? [],
+                            loading: model.loadingRecentRides,
+                            now: model.now,
+                            onFollow: { model.pinTrip($0) }
+                        )
+                        .transition(.opacity.combined(with: .offset(y: -4)))
+                    }
                     ForEach(later, id: \.trip) { view in
                         LaterRow(view: view, now: model.now) { model.pinTrip(view) }
                             .transition(.opacity.combined(with: .offset(y: 6)))
@@ -77,6 +91,160 @@ struct LaterSheet: View {
             }
             .scrollIndicators(.hidden)
         }
+        .task(id: showingEarlier) {
+            // Opening it asks NJ Transit for the last hour's trains this way;
+            // the ones remembered from earlier refreshes show straight away.
+            if showingEarlier { await model.loadRecentRides() }
+        }
+    }
+}
+
+/// The quiet way in, at the top of the Later sheet, for a rider who boarded
+/// without pinning: "On a train that's already left?"
+struct EarlierToggle: View {
+    let expanded: Bool
+    let action: () -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.ink.opacity(0.6))
+                    .accessibilityHidden(true)
+                Text("On a train that's already left?")
+                    .grFont(12.5, .medium, style: .footnote, maxScale: 1.4)
+                    .foregroundStyle(theme.ink.opacity(0.72))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.ink.opacity(0.5))
+                    .rotationEffect(.degrees(expanded ? 180 : 0))
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPress())
+        .accessibilityLabel("On a train that's already left?")
+        .accessibilityValue(expanded ? "Showing trains that left in the last hour" : "")
+        .accessibilityHint(expanded ? "Hides them" : "Shows trains this way that left in the last hour, to follow yours")
+    }
+}
+
+/// Trains this way that left in the last hour and are still under way,
+/// most recent first. Tapping one follows it on the main card, Live Activity
+/// and all, as if it had been pinned before it left.
+struct EarlierRides: View {
+    let rides: [TripView]
+    let loading: Bool
+    let now: Date
+    let onFollow: (TripView) -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("Left in the last hour").kicker()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 2)
+            ForEach(rides, id: \.trip) { view in
+                EarlierRideRow(view: view, now: now) { onFollow(view) }
+            }
+            if rides.isEmpty {
+                HStack(spacing: 8) {
+                    if loading {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Checking NJ Transit")
+                    } else {
+                        Text("No train this way left in the last hour.")
+                    }
+                }
+                .grFont(12.5, style: .footnote, maxScale: 1.4)
+                .foregroundStyle(theme.ink.opacity(0.72))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+            Rectangle()
+                .fill(theme.ink.opacity(0.12))
+                .frame(height: 0.5)
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// One train that already left: when it left, and when it gets in.
+struct EarlierRideRow: View {
+    let view: TripView
+    let now: Date
+    let onFollow: () -> Void
+    @Environment(\.theme) private var theme
+
+    private var trip: Trip { view.trip }
+
+    var body: some View {
+        Button(action: onFollow) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Format.time(view.expectedDeparture))
+                        .grFont(16, .semibold, style: .headline, maxScale: 1.4, digits: true)
+                    Text(leftAgo)
+                        .grFont(11.2, style: .caption, maxScale: 1.4, digits: true)
+                        .foregroundStyle(theme.ink.opacity(0.72))
+                }
+                .frame(minWidth: 62, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 0) {
+                        Text(trip.trainId.map { "Train \($0)" } ?? "Rail trip")
+                        Text(" · \(Format.tripType(trip))")
+                            .foregroundStyle(theme.ink.opacity(0.8))
+                    }
+                    .grFont(13.1, .medium, style: .subheadline, maxScale: 1.4, digits: true)
+                    .lineLimit(1)
+                    if let arrival = view.expectedArrival {
+                        Text("Arrives \(Format.time(arrival)) · \(Format.countdown(to: arrival, now: now).lowercased())")
+                            .grFont(11.5, style: .caption, maxScale: 1.4, digits: true)
+                            .foregroundStyle(theme.ink.opacity(0.75))
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "pin")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.ink.opacity(0.7))
+                    .frame(width: 30, height: 30)
+                    .pillSurface()
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPress())
+        .accessibilityLabel(accessibilityText)
+        .accessibilityHint("Follows this train on the main card")
+    }
+
+    /// "Left 12 min ago".
+    private var leftAgo: String {
+        let minutes = max(0, Int(now.timeIntervalSince(view.expectedDeparture) / 60))
+        return minutes < 1 ? "Just left" : "Left \(minutes) min ago"
+    }
+
+    private var accessibilityText: String {
+        var text = "Train \(trip.trainId ?? "trip"), left \(Format.time(view.expectedDeparture))"
+        if let arrival = view.expectedArrival { text += ", arrives \(Format.time(arrival))" }
+        return text
     }
 }
 

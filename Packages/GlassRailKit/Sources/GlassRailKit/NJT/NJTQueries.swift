@@ -128,6 +128,12 @@ public enum NJTQueries {
     /// so a train doesn't drop off the board over one lost request.
     public static let plannerFallbackLimit: TimeInterval = 30 * 60
 
+    /// "On a train that's already left?" asks the planner for trips leaving
+    /// this many minutes ago (three itineraries each), only when the rider
+    /// opens it: with the trips remembered from earlier refreshes, that
+    /// covers the trains of the last hour still under way.
+    public static let recentRideLookbackMinutes = [70, 45, 20]
+
     /// Upper bound on trains per stop-list batch, so one refresh can't fan out.
     public static let maxStopListTrains = 8
 }

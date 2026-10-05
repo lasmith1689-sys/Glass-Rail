@@ -31,6 +31,10 @@ public struct BoardInputs: Sendable {
     /// Track-change alerts accumulated across refreshes (see `TrackState`).
     public var trackChanges: [String: TrackChange]
     public var fetchFailures: Int
+    /// Trips from earlier refreshes (or asked for), which NJ Transit stops
+    /// listing once they leave: where `BoardState.recentRides` finds a
+    /// train the rider boarded without pinning.
+    public var recentTrips: [Trip]
 
     public init(
         payload: Payload,
@@ -41,7 +45,8 @@ public struct BoardInputs: Sendable {
         pin: Pin? = nil,
         rideCache: RideCache? = nil,
         trackChanges: [String: TrackChange] = [:],
-        fetchFailures: Int = 0
+        fetchFailures: Int = 0,
+        recentTrips: [Trip] = []
     ) {
         self.payload = payload
         self.runs = runs
@@ -52,6 +57,7 @@ public struct BoardInputs: Sendable {
         self.rideCache = rideCache
         self.trackChanges = trackChanges
         self.fetchFailures = fetchFailures
+        self.recentTrips = recentTrips
     }
 }
 
@@ -91,6 +97,11 @@ public struct BoardState: Equatable, Sendable {
     /// isn't upcoming either, so the pin has done its job.
     public var pinRideOver: Bool
     public var later: [TripView]
+    /// Trains this way that already left and haven't arrived, most recent
+    /// first (`BoardEngine.recentRides`), for "On a train that's already
+    /// left?": a rider who forgot to pin before boarding can follow the ride.
+    /// Never the pinned ride, which is on the main card already.
+    public var recentRides: [TripView]
     public var noService: Bool
     public var alternate: Alternate?
     public var heroStops: [TrainStop]?
@@ -117,6 +128,40 @@ public enum BoardEngine {
     public static let stopListTrains = 6
     /// How long the "Train N has departed" notice stays up.
     public static let departedNoticeDuration: TimeInterval = 12
+    /// How far back "On a train that's already left?" looks.
+    public static let recentRideWindow: TimeInterval = 75 * 60
+
+    /// Trips `fromId` to `toId` that left within `recentRideWindow` and are
+    /// still under way (`Status.rideView`: until shortly after arrival), most
+    /// recent first, one per train (the better itinerary for it, as
+    /// `NJTParse.compareTripPreference` ranks them). A train its board still
+    /// lists (`TripView.holdUntil`) hasn't left, and a cancelled one never ran.
+    public static func recentRides(
+        _ trips: [Trip],
+        fromId: String,
+        toId: String,
+        now: Date,
+        alerts: Bool,
+        changes: [String: TrackChange] = [:],
+        timing: (TripView) -> TripView = { $0 }
+    ) -> [TripView] {
+        var best: [String: Trip] = [:]
+        for trip in trips where trip.fromId == fromId && trip.toId == toId {
+            guard let key = Status.tripKey(trip) else { continue }
+            if let existing = best[key], NJTParse.compareTripPreference(trip, existing) >= 0 { continue }
+            best[key] = trip
+        }
+        let left = now.addingTimeInterval(-Status.departureGrace)
+        let since = now.addingTimeInterval(-recentRideWindow)
+        let rides: [TripView] = best.values.compactMap { (trip: Trip) -> TripView? in
+            guard let ride = Status.rideView(trip, now: now, alerts: alerts, changes: changes) else { return nil }
+            let view = timing(ride)
+            let leaves = max(view.expectedDeparture, view.holdUntil ?? view.expectedDeparture)
+            guard !view.cancelled, leaves < left, view.expectedDeparture >= since else { return nil }
+            return view
+        }
+        return rides.sorted { ($0.expectedDeparture, $0.key ?? "") > ($1.expectedDeparture, $1.key ?? "") }
+    }
 
     /// True pickup and drop-off times for one trip from its live stop list.
     public static func applyTiming(_ view: TripView, runs: Runs, origin: Station, dest: Station) -> TripView {
@@ -246,6 +291,15 @@ public enum BoardEngine {
         // lookups rarely found more.
         var later = direction
         if pinnedRide == nil, let upcomingIndex { later.remove(at: upcomingIndex) }
+        let recentRides = Self.recentRides(
+            payload.trips + input.recentTrips,
+            fromId: from.id,
+            toId: to.id,
+            now: now,
+            alerts: alerts,
+            changes: activeChanges,
+            timing: { markingBrokenConnection(applyTiming($0, runs: runs, origin: from, dest: to), runs: runs) }
+        ).filter { $0.key != activePinKey }
 
         // When the rider's own station has no service at all, an empty board
         // is truthful but useless: find the nearest station that has trains.
@@ -301,6 +355,7 @@ public enum BoardEngine {
             riding: pinnedRide != nil,
             pinRideOver: pinRideOver,
             later: later,
+            recentRides: recentRides,
             noService: noService,
             alternate: alternate,
             heroStops: heroStops,

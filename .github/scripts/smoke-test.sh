@@ -312,6 +312,8 @@ capture 06-stale 5 'STALE && outdated' -GlassRailDemo stale
 # Sample data never shows a delay, and never claims a train is on time.
 capture 07-sample 5 'SAMPLE && SCHEDULED && !DELAYED && !ON TIME' -GlassRailDemo sample
 capture 08-later-sheet 6 'Arrives [0-9]' -GlassRailDemo delayed -GlassRailSheet later
+# On 1074 without having pinned it: "On a train that's already left?" lists it, to follow.
+capture 08b-earlier 6 'Left in the last hour && Train 1074 && Left [0-9]+ min ago' -GlassRailDemo boarded -GlassRailSheet earlier
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Choose a look' -GlassRailSheet settings
 # Any NJ Transit rail station can be home, Watchung Avenue first as the default.

@@ -573,6 +573,22 @@ final class NJTClientTests: XCTestCase {
         XCTAssertFalse(after.trips.contains { $0.trainId == "1078" })
     }
 
+    func testAsksForTheLastHoursTripsLeaving70_45And20MinutesAgo() async {
+        let fake = FakeNJT { operation, variables in
+            guard operation == "planner" else { return FakeNJT.emptyBoard }
+            switch variables["time"].jsString {
+            case "8:35 AM": return FakeNJT.planner(train: "1066", at: "08:51:00 AM", arrive: "09:30:00 AM")
+            case "9:00 AM": return NJTHTTPResponse(status: 500, body: Data("{}".utf8))
+            default: return FakeNJT.planner(train: "1070", at: "09:31:00 AM", arrive: "10:10:00 AM")
+            }
+        }
+        let trips = await client(fake).fetchRecentTrips(for: ODPair(fromId: "watchung", toId: "hoboken"))
+        let times = Set(fake.calls.filter { $0.operation == "planner" }.map { $0.variables["time"].jsString })
+        XCTAssertEqual(times, ["8:35 AM", "9:00 AM", "9:25 AM"])
+        XCTAssertEqual(trips.compactMap(\.trainId), ["1066", "1070"], "a lookup that fails is left out")
+        XCTAssertTrue(trips.allSatisfy { $0.fromId == "watchung" && $0.toId == "hoboken" })
+    }
+
     func testThePlannerCacheReusesAnswersForTheirLifetimeAndKeepsThemToFallBackOn() {
         let cache = PlannerCache(lifetime: 600, fallbackLimit: 1800)
         cache.store([.string("x")], for: "k", now: base)
