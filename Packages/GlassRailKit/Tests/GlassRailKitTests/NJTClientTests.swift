@@ -458,7 +458,7 @@ final class NJTClientTests: XCTestCase {
         XCTAssertFalse(window.failed)
     }
 
-    func testTrainLookupsAreReusedForTenMinutesClockLookupsAreNot() async throws {
+    func testClockLookupsAfterTheFirstArePinnedToTheQuarterHourAndReused() async throws {
         let clock = MovableClock(base)
         let fake = FakeNJT { operation, variables in
             if operation == "board" {
@@ -475,19 +475,116 @@ final class NJTClientTests: XCTestCase {
         _ = try await client.fetchLivePayload(pairs: into)
 
         let planner = fake.calls.filter { $0.operation == "planner" }
-        XCTAssertEqual(planner.filter { $0.variables["time"].jsString == "10:13 AM" }.count, 2, "asked, reused a minute later, asked again after ten minutes")
-        XCTAssertEqual(planner.filter { $0.variables["time"].jsString == "9:51 AM" }.count, 1, "reused, then that train had left")
-        XCTAssertEqual(planner.count, 3 * 4 + 3, "four clock lookups every refresh")
+        func asked(_ time: String) -> Int { planner.filter { $0.variables["time"].jsString == time }.count }
+        // The first lookup leaves from now, every refresh.
+        XCTAssertEqual([asked("9:45 AM"), asked("9:46 AM"), asked("9:56 AM")], [1, 1, 1])
+        // The others sit on the quarter hour after their time (75 minutes
+        // after 9:46 is 11:01, so 11:15) and are reused while ten minutes old.
+        XCTAssertEqual([asked("11:00 AM"), asked("12:15 PM"), asked("1:30 PM")], [1, 1, 1])
+        XCTAssertEqual([asked("11:15 AM"), asked("12:30 PM"), asked("1:45 PM")], [2, 2, 2], "asked at 9:46, reused, asked again at 9:56")
+        XCTAssertEqual(asked("10:13 AM"), 2, "a train's own lookup: asked, reused a minute later, asked again after ten minutes")
+        XCTAssertEqual(asked("9:51 AM"), 1, "reused, then that train had left")
+        XCTAssertEqual(planner.count, 6 + 4 + 5)
     }
 
-    func testThePlannerCacheForgetsAnswersAfterItsLifetime() {
-        let cache = PlannerCache(lifetime: 600)
+    func testPinsLaterLookupsToTheQuarterHour() {
+        XCTAssertEqual(NJTClient.quarterHour(after: date("2026-08-03T15:00:00.000Z")), date("2026-08-03T15:00:00.000Z"))
+        XCTAssertEqual(NJTClient.quarterHour(after: date("2026-08-03T15:00:30.000Z")), date("2026-08-03T15:15:00.000Z"))
+        XCTAssertEqual(NJTClient.quarterHour(after: date("2026-08-03T15:14:59.000Z")), date("2026-08-03T15:15:00.000Z"))
+        XCTAssertEqual(NJTClient.quarterHour(after: date("2026-08-03T15:46:00.000Z")), date("2026-08-03T16:00:00.000Z"))
+    }
+
+    func testLooksUpEveryTrainOnTheHomeBoardSixHoursAhead() async throws {
+        // 2:13 PM is 4 h 28 min after 9:45, past the last clock lookup (1:30);
+        // 4:13 PM is past six hours.
+        let boardReply = """
+        {"data":{"getTrainDepartureScreens":{"items":[
+          {"departureDate":"03-Aug-2026 09:51:00 AM","destination":"Hoboken","status":"","track":"2","trainID":"1074"},
+          {"departureDate":"03-Aug-2026 02:13:00 PM","destination":"Hoboken","status":"","track":"2","trainID":"1090"},
+          {"departureDate":"03-Aug-2026 04:13:00 PM","destination":"Hoboken","status":"","track":"2","trainID":"1098"},
+          {"departureDate":"03-Aug-2026 01:40:00 PM","destination":"MSU","status":"","track":"1","trainID":"6271"}
+        ]}}}
+        """
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? FakeNJT.ok(boardReply) : FakeNJT.emptyBoard
+            }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        _ = try await client(fake).fetchLivePayload(required: ["watchung|hoboken"])
+        let planner = fake.calls.filter { $0.operation == "planner" }
+        func asked(_ from: String, _ option: String, _ time: String) -> Bool {
+            planner.contains {
+                $0.variables["origin"].jsString == from && $0.variables["timeOption"].jsString == option && $0.variables["time"].jsString == time
+            }
+        }
+        XCTAssertTrue(asked("Watchung Avenue Station", "D", "2:13 PM"))
+        XCTAssertFalse(asked("Watchung Avenue Station", "D", "4:13 PM"))
+        // On the first refresh after opening only the direction on screen gets them.
+        XCTAssertFalse(asked("Hoboken Terminal", "A", "1:40 PM"))
+    }
+
+    func testATrainStaysWhenItsOwnLookupFailsWithinHalfAnHour() async throws {
+        let clock = MovableClock(base)
+        let down = TestSwitch()
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            if variables["time"].jsString == "10:13 AM" {
+                return down.on ? NJTHTTPResponse(status: 500, body: Data("{}".utf8)) : FakeNJT.planner(train: "1078", at: "10:13:00 AM", arrive: "10:52:00 AM")
+            }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        let client = NJTClient(transport: fake, clock: { clock.now }, retryDelay: 0)
+        let into = [ODPair(fromId: "watchung", toId: "hoboken")]
+        let first = try await client.fetchLivePayload(pairs: into)
+        XCTAssertTrue(first.trips.contains { $0.trainId == "1078" })
+        // Twelve minutes on, that answer is too old to reuse, and asking again fails.
+        down.on = true
+        clock.now = base.addingTimeInterval(12 * 60)
+        let later = try await client.fetchLivePayload(pairs: into)
+        XCTAssertTrue(later.trips.contains { $0.trainId == "1078" }, "the answer from 9:45 stands in")
+    }
+
+    func testTheLastHomeBoardStillSaysWhichTrainsToLookUpWhenItFails() async throws {
+        let clock = MovableClock(base)
+        let boardDown = TestSwitch()
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                guard variables["station"].jsString == "Watchung Avenue" else { return FakeNJT.emptyBoard }
+                return boardDown.on ? NJTHTTPResponse(status: 502, body: Data("{}".utf8)) : Self.homeBoardReply
+            }
+            if variables["time"].jsString == "10:13 AM" {
+                return FakeNJT.planner(train: "1078", at: "10:13:00 AM", arrive: "10:52:00 AM")
+            }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        let client = NJTClient(transport: fake, clock: { clock.now }, retryDelay: 0)
+        let into = [ODPair(fromId: "watchung", toId: "hoboken")]
+        _ = try await client.fetchLivePayload(pairs: into)
+        boardDown.on = true
+        clock.now = base.addingTimeInterval(2 * 60)
+        let next = try await client.fetchLivePayload(pairs: into)
+        XCTAssertTrue(next.trips.contains { $0.trainId == "1078" }, "the board from two minutes ago still lists it")
+        // Ten minutes on, that board is too old to go by.
+        clock.now = base.addingTimeInterval(11 * 60)
+        let after = try await client.fetchLivePayload(pairs: into)
+        XCTAssertFalse(after.trips.contains { $0.trainId == "1078" })
+    }
+
+    func testThePlannerCacheReusesAnswersForTheirLifetimeAndKeepsThemToFallBackOn() {
+        let cache = PlannerCache(lifetime: 600, fallbackLimit: 1800)
         cache.store([.string("x")], for: "k", now: base)
         XCTAssertEqual(cache.itineraries(for: "k", now: base.addingTimeInterval(599)), [.string("x")])
-        XCTAssertNil(cache.itineraries(for: "k", now: base.addingTimeInterval(600)))
+        XCTAssertNil(cache.itineraries(for: "k", now: base.addingTimeInterval(600)), "reused for its lifetime")
+        XCTAssertEqual(cache.fallback(for: "k", now: base.addingTimeInterval(1799)), [.string("x")], "then kept to stand in for a lookup that fails")
+        XCTAssertNil(cache.fallback(for: "k", now: base.addingTimeInterval(1800)))
         XCTAssertNil(cache.itineraries(for: "other", now: base))
         cache.store([], for: "k2", now: base.addingTimeInterval(700))
-        XCTAssertEqual(cache.count, 1, "expired answers go when a new one is stored")
+        XCTAssertEqual(cache.count, 2)
+        cache.store([], for: "k3", now: base.addingTimeInterval(1900))
+        XCTAssertEqual(cache.count, 2, "answers too old to fall back on go when a new one is stored")
     }
 
     // MARK: Travel alerts
@@ -551,5 +648,24 @@ final class NJTClientTests: XCTestCase {
         let fake = FakeNJT { _, _ in FakeNJT.ok(#"{"data":{"getTrainStopList":[]}}"#) }
         _ = await client(fake).fetchTrainRuns((0..<20).map { String(1000 + $0) })
         XCTAssertEqual(fake.calls.count, 8)
+    }
+}
+
+/// A flag a fake reads in its handler while the test flips it.
+final class TestSwitch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    var on: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+        set {
+            lock.lock()
+            value = newValue
+            lock.unlock()
+        }
     }
 }

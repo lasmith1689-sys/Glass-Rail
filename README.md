@@ -106,7 +106,7 @@ header v4 sent: `getTripPlannerSchedule` (trip planner lookups, see below),
 times, up to eight trains per refresh). There is no server. The widget reuses the app's data when
 the direction it shows is at most 5 minutes old there; otherwise it fetches only the two directions
 for your chosen terminal, with two clock lookups each (now and 75 minutes out) plus the per-train
-lookups below.
+lookups below for the next two hours.
 
 ### Every train, not a sample of them
 
@@ -121,13 +121,28 @@ So each refresh also makes one lookup per train on Watchung Avenue's own departu
 lists every train that stops there, both ways: "leave at" its departure for a train into the city,
 and "arrive by" its time at Watchung for a train out of the city, which NJ Transit answers with the
 latest way to catch it. In the live check that found the train for 22 of 22 morning departures and
-the latest way home for 20 of 21 evening arrivals. The direction on screen gets its next 8 trains,
-the others their next 4, in the same round as the clock lookups. A per-train answer is reused for
-10 minutes (the timetable doesn't change between refreshes; live status comes from the boards), so
-after the first refresh only new trains cost a lookup and a refresh takes about as long as v4's.
-The first refresh after opening looks up trains only for the direction on screen, so the board
-loads about as fast as before; the next refresh adds the other directions'. A per-train lookup that
-fails only costs its train; the direction still stands on the clock lookups.
+the latest way home for 20 of 21 evening arrivals.
+
+At first that covered only the next 8 trains on screen (4 the other ways) within 3 hours 45 minutes,
+and a second live check, at 2:22 PM the same Monday, showed what that cost: of the ways home in the
+next six hours, the app missed 19 of 37 from Hoboken (among them the direct 5:56 PM, train 275, and
+every way after 7 PM) and 12 of 32 from Penn Station, while Watchung Avenue's board listed 19
+trains, five hours of them. The clock lookups also moved with the clock, so a train a couple of
+hours out could be listed one minute and gone the next. Now:
+- every train on Watchung Avenue's board up to 6 hours ahead gets its lookup, in each direction
+  (at most 24 a direction);
+- the clock lookups after the first are pinned to the quarter hour after their time (11:15, not
+  11:01) and reused like the per-train ones, so the list only changes when NJ Transit's data does;
+- a lookup that fails falls back on its answer from the last half hour, and a board that fails to
+  load on the one from the last 10 minutes, so a train doesn't drop off the list over one lost
+  request.
+
+A per-train or pinned answer is reused for 10 minutes (the timetable doesn't change between
+refreshes; live status comes from the boards), so after the first refresh only new trains cost a
+lookup. The first refresh after opening looks up trains only for the direction on screen, so the
+board loads about as fast as before; the next refresh adds the other directions'. A per-train
+lookup that fails with no earlier answer only costs its train; the direction still stands on the
+clock lookups.
 
 Two rules keep the longer list honest:
 - Itineraries that ride PATH, the subway or a bus are left out. Read as rail alone, Watchung Avenue
@@ -220,7 +235,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 297 tests: v4's 138 vitest cases, one XCTest each, plus 159 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 301 tests: v4's 138 vitest cases, one XCTest each, plus 163 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -252,14 +267,16 @@ GitHub Actions is the only build machine. Every push runs CI (`.github/workflows
    branch, and fails its step unless Saturday reads as "No trains" with Bay Street instead and 3 AM
    lists the first morning trains. Then a soak test: the app's refresh loop, 8 refreshes 30 seconds
    apart through one client as on the phone (stop lists included), each checked against Watchung
-   Avenue's own board fetched separately. Every train for the city in the next 2 hours must be in
-   the app and on screen (unless a later trip beats it), a train the board counts down to must show
+   Avenue's own board fetched separately. Every train for the city on that board in the next 6 hours
+   must be in the app and on screen (unless a later trip beats it), a train the board counts down to must show
    within 3 minutes of that time, and no train may show as direct to a terminal its board says it
    doesn't reach. Home, every train on Watchung Avenue's board still on Hoboken's or Penn Station's
    own board must be a direct ride home from there, on screen in PM mode and within 3 minutes of
-   that board's countdown; and a connection leading the board must be one the connecting train's
-   own stop list allows. Its summary is posted as the `soak` notice. The job never blocks the rest
-   of CI.
+   that board's countdown; a connection leading the board must be one the connecting train's own
+   stop list allows; and from the second refresh on, every train home on Watchung Avenue's board
+   from 75 minutes to 6 hours ahead must end a way home from Hoboken or Penn Station (the
+   terminals' own boards only reach an hour or two). Its summary is posted as the `soak` notice.
+   The job never blocks the rest of CI.
 
 Shipping to TestFlight is separate and deliberate: see [TESTFLIGHT.md](TESTFLIGHT.md).
 

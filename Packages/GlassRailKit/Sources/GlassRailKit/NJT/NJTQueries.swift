@@ -93,24 +93,40 @@ public enum NJTQueries {
 
     /// Planner lookups start now and 75, 150 and 225 minutes out, so one
     /// refresh reaches the next few hours. Each answers with only three
-    /// itineraries, ranked by arrival, so on their own they skip trains (a
-    /// live check on a weekday found 8 of 28 ways home from Hoboken after
-    /// 4:45 PM); one more lookup per train on the home station's board fills
-    /// those in (see `NJTClient.plannerSeeds`).
+    /// itineraries, ranked by arrival, so on their own they skip trains (on
+    /// 5 October at 2:22 PM, with eight per-train lookups as well, the app
+    /// found 18 of 37 ways home from Hoboken in the next six hours); one
+    /// more lookup per train on the home station's board fills those in
+    /// (see `NJTClient.plannerSeeds`). The lookups after the first are
+    /// pinned to the quarter hour after their time and reused like the
+    /// per-train ones, so what they find doesn't come and go from one
+    /// refresh to the next.
     public static let plannerOffsetsMinutes = [0, 75, 150, 225]
 
+    /// Where the clock lookups after the first are pinned: the quarter hour.
+    public static let clockLookupStep: TimeInterval = 15 * 60
+
+    /// Per-train lookups reach this far ahead: every train on the home
+    /// station's board (Watchung Avenue's listed 19 trains both ways, five
+    /// hours of them, at 2:22 PM on a weekday).
+    public static let seedHorizonMinutes = 360
+
     /// Per-train lookups (see `NJTClient.plannerSeeds`) for the direction on
-    /// screen: its next trains at the home station, soonest first.
-    public static let seedsForShownDirection = 8
+    /// screen: every train this way on the home station's board, soonest
+    /// first, up to this many.
+    public static let seedsForShownDirection = 24
     /// Per-train lookups for each other direction, so a flip or a change of
-    /// terminal shows the next few trains straight away. None on the first
-    /// refresh after opening, so the board on screen isn't kept waiting.
-    public static let seedsForOtherDirection = 4
-    /// How long a per-train lookup's answer is reused. Each sits at one
-    /// train's own time, so the same lookups recur refresh after refresh and
-    /// a timetable doesn't change in between; live status comes from the
+    /// terminal shows every train straight away. None on the first refresh
+    /// after opening, so the board on screen isn't kept waiting.
+    public static let seedsForOtherDirection = 24
+    /// How long a per-train (or pinned clock) lookup's answer is reused. Each
+    /// sits at a fixed time, so the same lookups recur refresh after refresh
+    /// and a timetable doesn't change in between; live status comes from the
     /// departure boards.
     public static let seedCacheLifetime: TimeInterval = 10 * 60
+    /// How long such an answer is kept to stand in when asking again fails,
+    /// so a train doesn't drop off the board over one lost request.
+    public static let plannerFallbackLimit: TimeInterval = 30 * 60
 
     /// Upper bound on trains per stop-list batch, so one refresh can't fan out.
     public static let maxStopListTrains = 8

@@ -112,9 +112,9 @@ do {
     save("payload.json", (try? GlassRailJSON.encoder().encode(payload)) ?? Data())
     notice("live payload", lines.joined(separator: "\n"))
 
-    // 3b. Every train on Watchung Avenue's board in the next 3 hours should
-    // be on the board this way: as the first train into the city, or as the
-    // last train home.
+    // 3b. Every train on Watchung Avenue's board in the next 6 hours (as far
+    // as the app looks up each one) should be on the board this way: as the
+    // first train into the city, or as the last train home.
     let index = NJTParse.buildBoardIndex(homeBoardItems)
     var coverage: [String] = []
     for pair in Alternates.defaultPairs() {
@@ -122,7 +122,7 @@ do {
         let due = index.filter { entry in
             guard NJTParse.isTowardCity(entry.value.destination) == leaving,
                   let time = entry.value.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: t0) }) else { return false }
-            return time >= t0 && time <= t0.addingTimeInterval(3 * 3600)
+            return time >= t0 && time <= t0.addingTimeInterval(TimeInterval(NJTQueries.seedHorizonMinutes * 60))
         }
         let used = Set(payload.trips.filter { $0.fromId == pair.fromId && $0.toId == pair.toId }.compactMap { trip -> String? in
             let legs = trip.legTrainIds ?? [trip.trainId].compactMap { $0 }
@@ -131,7 +131,7 @@ do {
         let missing = due.keys.filter { !used.contains($0) }.sorted()
         coverage.append("\(pair.key): \(due.count - missing.count) of \(due.count) board trains" + (missing.isEmpty ? "" : ", missing \(missing.joined(separator: ", "))"))
     }
-    notice("board trains covered (next 3 hours)", coverage.joined(separator: "\n"))
+    notice("board trains covered (next 6 hours)", coverage.joined(separator: "\n"))
 } catch {
     notice("live payload FAILED", error.localizedDescription)
 }
@@ -148,7 +148,7 @@ do {
     let t2 = Date()
     _ = try await app.fetchLivePayload(required: [shown.key], previous: first)
     let warm = Date().timeIntervalSince(t2)
-    notice("app refresh timing", "\(shown.key) on screen: first refresh \(String(format: "%.1f", cold)) s (\(first.trips.count) trips), next \(String(format: "%.1f", warm)) s, \(app.plannerCache.count) per-train answers cached")
+    notice("app refresh timing", "\(shown.key) on screen: first refresh \(String(format: "%.1f", cold)) s (\(first.trips.count) trips), next \(String(format: "%.1f", warm)) s, \(app.plannerCache.count) planner answers kept (per-train and pinned clock lookups)")
 } catch {
     notice("app refresh timing FAILED", error.localizedDescription)
 }

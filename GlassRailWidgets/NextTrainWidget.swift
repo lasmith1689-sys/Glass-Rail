@@ -116,6 +116,7 @@ enum WidgetData {
             let payload = try await client.fetchLivePayload(
                 pairs: WidgetPlanner.pairs(destinationId: destinationId),
                 plannerOffsets: WidgetPlanner.plannerOffsetsMinutes,
+                seedHorizonMinutes: WidgetPlanner.seedHorizonMinutes,
                 required: [shown.key],
                 previous: saved?.payload,
                 includeAlerts: false

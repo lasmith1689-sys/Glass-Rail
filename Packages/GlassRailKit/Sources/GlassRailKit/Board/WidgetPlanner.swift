@@ -142,11 +142,16 @@ public enum WidgetPlanner {
 
     /// Clock lookups per direction when the widget fetches for itself: now
     /// and 75 minutes out (the app makes four). With the per-train lookups
-    /// for the trains on Watchung Avenue's board in that time (see
-    /// `NJTClient.plannerSeeds`), that covers the next two to three hours
-    /// both ways, well past the next reload, and the other direction's trains
-    /// for the 2 PM switch.
+    /// for the trains on the home station's board in the next two hours
+    /// (`seedHorizonMinutes`, see `NJTClient.plannerSeeds`), that covers the
+    /// next two to three hours both ways, well past the next reload, and the
+    /// other direction's trains for the 2 PM switch.
     public static let plannerOffsetsMinutes = [0, 75]
+
+    /// How far ahead the widget's own fetch looks up each train on the home
+    /// station's board (the app looks six hours ahead). A widget fetches with
+    /// a new client each time, so none of those answers are reused.
+    public static let seedHorizonMinutes = 120
 
     /// Whether the app's saved board is fresh enough to use without fetching.
     /// Only live data counts; a timestamp far in the future (a clock change)

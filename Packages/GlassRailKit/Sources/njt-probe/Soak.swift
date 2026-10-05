@@ -6,8 +6,9 @@ import GlassRailKit
 // cached; each refresh built on the last; stop lists for the trains on screen),
 // checked every round against NJ Transit's own board for Watchung Avenue,
 // fetched separately as the referee. Each round, for both terminals:
-// - every train on the board bound for the city in the next 2 hours must be
-//   in the app's trips, and on screen unless a later trip beats it;
+// - every train on the board bound for the city in the next 6 hours (as far
+//   as the board lists them) must be in the app's trips, and on screen
+//   unless a later trip beats it;
 // - a train the board counts down to ("in 7 Min") must be shown within 3
 //   minutes of that time;
 // - no train may be shown direct to a terminal its board says it doesn't reach.
@@ -16,8 +17,12 @@ import GlassRailKit
 // hasn't left there) must be a way home from that terminal, on screen in PM
 // mode, and shown within 3 minutes of that board's countdown; and a connection
 // leading the board must be one the connecting train's own stop list allows
-// (it calls at the transfer station). A failed
-// refresh or any problem fails the step; the CI step is informational.
+// (it calls at the transfer station). And from the second round on (the
+// first refresh after opening looks up only the direction on screen), every
+// train coming out of the city on Watchung Avenue's board from 75 minutes to
+// 6 hours ahead must end a way home from Hoboken or Penn Station: the
+// terminals' boards only list the next hour or two. A failed refresh or any
+// problem fails the step; the CI step is informational.
 
 /// Counts requests, so each round can say what it cost.
 final class CountingTransport: NJTTransport, @unchecked Sendable {
@@ -58,6 +63,9 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
     var notes: [String] = []
     var log: [String] = []
     print("Soak: \(rounds) refreshes, \(Int(interval)) s apart, from \(Format.time(Date())) Eastern")
+    /// How far ahead the referee's board is held against the app: as far as
+    /// the app looks up each train on it (`NJTQueries.seedHorizonMinutes`).
+    let boardReach = TimeInterval(NJTQueries.seedHorizonMinutes * 60)
 
     /// A train past its time that the referee's board still lists with no
     /// countdown, which the app dropped because NJ Transit's own data said it
@@ -123,7 +131,7 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
             let trips = payload.trips.filter { $0.fromId == UserConfig.homeId && $0.toId == destination }
             for (train, entry) in board where NJTParse.isTowardCity(entry.destination) {
                 guard let scheduled = entry.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: truthAt) }),
-                      scheduled <= truthAt.addingTimeInterval(2 * 3600) else { continue }
+                      scheduled <= truthAt.addingTimeInterval(boardReach) else { continue }
                 let mine = trips.filter { $0.trainId == train }
                 if mine.isEmpty {
                     problems.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) to \(entry.destination ?? "?") is on Watchung Avenue's board but not in the app")
@@ -208,6 +216,24 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                 line += " home from \(terminal): \(hero.trip.trainId ?? "?") \(Format.time(hero.expectedDeparture)) \(Format.tripType(hero.trip))\(hero.delayed ? " late" : "")\(hero.cancelled ? " cancelled" : "");"
             } else {
                 line += " home from \(terminal): no train;"
+            }
+        }
+
+        // Every train home on Watchung Avenue's board must end a way home:
+        // the terminals' boards above only reach an hour or two, and the
+        // planner, asked by the clock alone, skips trains. From 75 minutes on,
+        // so the ride has not already left the terminal.
+        if round > 1 {
+            for (train, atHome) in board where !NJTParse.isTowardCity(atHome.destination) {
+                guard let arrives = atHome.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: truthAt) }),
+                      arrives > truthAt.addingTimeInterval(75 * 60),
+                      arrives <= truthAt.addingTimeInterval(boardReach) else { continue }
+                let ends = payload.trips.contains {
+                    ["hoboken", "penn"].contains($0.fromId) && $0.toId == UserConfig.homeId && ($0.legTrainIds?.last ?? $0.trainId) == train
+                }
+                if !ends {
+                    problems.append("round \(round): \(train) reaching Watchung Avenue at \(Format.time(arrives)) ends no way home from Hoboken or Penn Station")
+                }
             }
         }
         log.append(line)

@@ -174,7 +174,9 @@ public struct NJTClient: Sendable {
     /// Planner lookups spread over the next few hours (four for the app, see
     /// `NJTQueries.plannerOffsetsMinutes`), with a record of which ones failed,
     /// plus one per train in `seeds`, all at once. A seed that fails only
-    /// costs its train: the window still stands on the clock lookups.
+    /// costs its train: the window still stands on the clock lookups. The
+    /// first clock lookup leaves from now; the others are pinned to the
+    /// quarter hour (`quarterHour(after:)`) and reused like the seeds.
     public func plannerWindow(
         origin: String,
         destination: String,
@@ -188,7 +190,11 @@ public struct NJTClient: Sendable {
                 group.addTask {
                     let at = base.addingTimeInterval(Double(minutes) * 60)
                     do {
-                        return (index, .success(try await fetchTripPlanner(origin: origin, destination: destination, at: at)))
+                        if index == 0 {
+                            return (index, .success(try await fetchTripPlanner(origin: origin, destination: destination, at: at)))
+                        }
+                        let pinned = PlannerSeed(at: Self.quarterHour(after: at), arriveBy: false)
+                        return (index, .success(try await seedLookup(origin: origin, destination: destination, seed: pinned)))
                     } catch {
                         return (index, .failure(error))
                     }
@@ -232,14 +238,32 @@ public struct NJTClient: Sendable {
         return window
     }
 
-    /// One per-train lookup, answered from `plannerCache` while fresh.
+    /// One per-train (or pinned clock) lookup, answered from `plannerCache`
+    /// while fresh. When asking again fails, an answer from the last half
+    /// hour stands in (`NJTQueries.plannerFallbackLimit`): the timetable
+    /// hasn't changed, and its trains shouldn't drop off the board over one
+    /// lost request.
     func seedLookup(origin: String, destination: String, seed: PlannerSeed) async throws -> [JSON] {
         let when = NJTParse.plannerMoment(seed.at)
         let key = "\(origin)|\(destination)|\(seed.arriveBy ? "A" : "D")|\(when.date) \(when.time)"
         if let cached = plannerCache.itineraries(for: key, now: clock()) { return cached }
-        let list = try await fetchTripPlanner(origin: origin, destination: destination, at: seed.at, arriveBy: seed.arriveBy)
-        plannerCache.store(list, for: key, now: clock())
-        return list
+        do {
+            let list = try await fetchTripPlanner(origin: origin, destination: destination, at: seed.at, arriveBy: seed.arriveBy)
+            plannerCache.store(list, for: key, now: clock())
+            return list
+        } catch {
+            if let earlier = plannerCache.fallback(for: key, now: clock()) { return earlier }
+            throw error
+        }
+    }
+
+    /// `moment` moved up to the next quarter hour (unchanged on one), where
+    /// the clock lookups after the first are pinned: a lookup at 11:15 stays
+    /// at 11:15 for a quarter of an hour of refreshes, so the trains it finds
+    /// stay put instead of shifting with every minute.
+    static func quarterHour(after moment: Date) -> Date {
+        let step = NJTQueries.clockLookupStep
+        return Date(timeIntervalSince1970: (moment.timeIntervalSince1970 / step).rounded(.up) * step)
     }
 
     /// The home station's own trains this way, from its departure board, as
@@ -272,8 +296,8 @@ public struct NJTClient: Sendable {
     // MARK: Boards and trips
 
     /// Board index per station id; a failed board is recorded and left empty.
-    private func boards(for stationIds: [String]) async -> (indexes: [String: [String: BoardEntry]], failures: [String]) {
-        await withTaskGroup(of: (String, [String: BoardEntry], String?).self) { group -> (indexes: [String: [String: BoardEntry]], failures: [String]) in
+    private func boards(for stationIds: [String]) async -> (indexes: [String: [String: BoardEntry]], failures: [String], failedIds: Set<String>) {
+        await withTaskGroup(of: (String, [String: BoardEntry], String?).self) { group -> (indexes: [String: [String: BoardEntry]], failures: [String], failedIds: Set<String>) in
             for id in stationIds {
                 group.addTask {
                     guard let station = Stations.station(id) else { return (id, [:], nil) }
@@ -294,31 +318,34 @@ public struct NJTClient: Sendable {
             }
             // Keep failures in station order, like v4's sequential record.
             let failures = stationIds.compactMap { failuresById[$0] }
-            return (indexes, failures)
+            return (indexes, failures, Set(failuresById.keys))
         }
     }
 
     /// Trips per pair, in pair order, plus the failure message of each pair
     /// whose planner window failed (see `PlannerWindow.failed`). Pairs in
     /// `required` (all when nil) get `NJTQueries.seedsForShownDirection`
-    /// per-train lookups, the rest `otherSeeds`.
+    /// per-train lookups, the rest `otherSeeds`, one per train on
+    /// `seedBoard` (the home station's) up to `seedHorizonMinutes` ahead.
     private func trips(
         for pairs: [ODPair],
         boards: [String: [String: BoardEntry]],
+        seedBoard: [String: BoardEntry],
         offsets: [Int],
+        seedHorizonMinutes: Int,
         required: Set<String>?,
         otherSeeds: Int
     ) async -> (groups: [[Trip]], failures: [Int: String]) {
         let baseNow = clock()
         let homeBoard = boards[UserConfig.homeId] ?? [:]
-        // Seeds reach as far as the clock lookups start, and at least an hour.
-        let horizon = TimeInterval(max(offsets.max() ?? 0, 60) * 60)
+        // Seeds reach at least as far as the clock lookups start, and an hour.
+        let horizon = TimeInterval(max(seedHorizonMinutes, offsets.max() ?? 0, 60) * 60)
         let results = await withTaskGroup(of: (Int, [Trip], String?).self) { group -> [Int: ([Trip], String?)] in
             for (index, pair) in pairs.enumerated() {
                 let shown = required?.contains(pair.key) ?? true
                 let seeds = Self.plannerSeeds(
                     for: pair,
-                    homeBoard: homeBoard,
+                    homeBoard: seedBoard,
                     now: baseNow,
                     horizon: horizon,
                     limit: shown ? NJTQueries.seedsForShownDirection : otherSeeds
@@ -381,6 +408,7 @@ public struct NJTClient: Sendable {
     public func fetchLivePayload(
         pairs: [ODPair] = Alternates.defaultPairs(),
         plannerOffsets: [Int] = NJTQueries.plannerOffsetsMinutes,
+        seedHorizonMinutes: Int = NJTQueries.seedHorizonMinutes,
         required: Set<String>? = nil,
         previous: Payload? = nil,
         includeAlerts: Bool = true
@@ -406,11 +434,25 @@ public struct NJTClient: Sendable {
         primary.failures.forEach(record)
         var boardIndexes = primary.indexes
 
+        // The per-train lookups follow the home station's board. When it
+        // doesn't load, the last one that did (within ten minutes) still says
+        // which trains to look up, so they don't drop off the board with it.
+        let home = UserConfig.homeId
+        var seedBoard = boardIndexes[home] ?? [:]
+        if primary.failedIds.contains(home) {
+            seedBoard = plannerCache.recentHomeBoard(stationId: home, now: clock()) ?? [:]
+        } else if stationIds.contains(home) {
+            plannerCache.rememberHomeBoard(seedBoard, stationId: home, at: clock())
+        }
+
         // With nothing from an earlier refresh (the app just opened), only the
         // directions in `required` get per-train lookups, so the board on screen
         // loads as fast as before; the next refresh adds the others' from cache.
         let otherSeeds = previous == nil ? 0 : NJTQueries.seedsForOtherDirection
-        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets, required: required, otherSeeds: otherSeeds)
+        let primaryTrips = await trips(
+            for: pairs, boards: boardIndexes, seedBoard: seedBoard, offsets: plannerOffsets,
+            seedHorizonMinutes: seedHorizonMinutes, required: required, otherSeeds: otherSeeds
+        )
         /// Why each direction (by index into `pairs`) has no trustworthy answer.
         var unreliable: [Int: String] = primaryTrips.failures
         func throwIfARequiredDirectionFailed() throws {
@@ -438,7 +480,10 @@ public struct NJTClient: Sendable {
             }
             let extra = await boards(for: extraStations)
             for (id, index) in extra.indexes { boardIndexes[id] = index }
-            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets, required: required, otherSeeds: otherSeeds)
+            let retried = await trips(
+                for: extraPairs, boards: boardIndexes, seedBoard: seedBoard, offsets: plannerOffsets,
+                seedHorizonMinutes: seedHorizonMinutes, required: required, otherSeeds: otherSeeds
+            )
             for (index, extraPair) in extraPairs.enumerated() {
                 guard let owner = pairs.indices.first(where: { Self.alternateKeys(for: pairs[$0]).contains(extraPair.key) && emptyKeys.contains(pairs[$0].key) }) else { continue }
                 if let failure = retried.failures[index] {
@@ -590,18 +635,25 @@ public struct PlannerSeed: Equatable, Hashable, Sendable {
     }
 }
 
-/// Answers to per-train planner lookups, each kept for `lifetime`. A seed
-/// sits at a train's own time, so the same lookups recur refresh after
-/// refresh while that train is on the board; reusing them keeps a refresh's
-/// load on NJ Transit near what the four clock lookups alone cost. Those move
-/// with the clock and are never cached. Only answers are kept, not failures.
+/// Answers to per-train and pinned clock planner lookups, each reused for
+/// `lifetime`. A seed sits at a train's own time, and a pinned clock lookup
+/// at a quarter hour, so the same lookups recur refresh after refresh;
+/// reusing them keeps a refresh's load on NJ Transit low and its answers
+/// steady. Only the first clock lookup moves with the clock and is never
+/// cached. Only answers are kept, not failures; each stays for
+/// `fallbackLimit` to stand in for a lookup that fails. Also keeps the last
+/// home board that loaded, for the per-train lookups (see `fetchLivePayload`).
 public final class PlannerCache: @unchecked Sendable {
     public let lifetime: TimeInterval
+    /// How long an answer is kept to stand in for a failed lookup.
+    public let fallbackLimit: TimeInterval
     private let lock = NSLock()
     private var entries: [String: (storedAt: Date, itineraries: [JSON])] = [:]
+    private var homeBoard: (stationId: String, index: [String: BoardEntry], storedAt: Date)?
 
-    public init(lifetime: TimeInterval = NJTQueries.seedCacheLifetime) {
+    public init(lifetime: TimeInterval = NJTQueries.seedCacheLifetime, fallbackLimit: TimeInterval = NJTQueries.plannerFallbackLimit) {
         self.lifetime = lifetime
+        self.fallbackLimit = max(lifetime, fallbackLimit)
     }
 
     /// The stored answer for `key`, unless it is older than `lifetime`.
@@ -613,12 +665,38 @@ public final class PlannerCache: @unchecked Sendable {
         return age >= 0 && age < lifetime ? entry.itineraries : nil
     }
 
-    /// Store an answer, dropping any that have expired.
+    /// The stored answer for `key` while it may stand in for a lookup that
+    /// failed: younger than `fallbackLimit`.
+    public func fallback(for key: String, now: Date) -> [JSON]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[key] else { return nil }
+        let age = now.timeIntervalSince(entry.storedAt)
+        return age >= 0 && age < fallbackLimit ? entry.itineraries : nil
+    }
+
+    /// Store an answer, dropping any too old to stand in for a failed lookup.
     public func store(_ itineraries: [JSON], for key: String, now: Date) {
         lock.lock()
         defer { lock.unlock() }
-        entries = entries.filter { now.timeIntervalSince($0.value.storedAt) < lifetime }
+        entries = entries.filter { now.timeIntervalSince($0.value.storedAt) < fallbackLimit }
         entries[key] = (storedAt: now, itineraries: itineraries)
+    }
+
+    /// Keep the home station's board as it loaded at `at`.
+    public func rememberHomeBoard(_ index: [String: BoardEntry], stationId: String, at: Date) {
+        lock.lock()
+        defer { lock.unlock() }
+        homeBoard = (stationId: stationId, index: index, storedAt: at)
+    }
+
+    /// The last board that loaded for `stationId`, while younger than `lifetime`.
+    public func recentHomeBoard(stationId: String, now: Date) -> [String: BoardEntry]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let kept = homeBoard, kept.stationId == stationId else { return nil }
+        let age = now.timeIntervalSince(kept.storedAt)
+        return age >= 0 && age < lifetime ? kept.index : nil
     }
 
     /// How many answers are stored, expired or not.
