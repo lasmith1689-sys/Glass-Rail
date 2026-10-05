@@ -20,6 +20,9 @@ struct BoardScreen: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             if let state = model.state {
+                                if !state.serviceAlerts.isEmpty {
+                                    ServiceAlertBanner(alerts: state.serviceAlerts)
+                                }
                                 RouteBar(
                                     state: state,
                                     destinationId: model.destinationId,

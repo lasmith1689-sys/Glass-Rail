@@ -32,6 +32,8 @@ final class FakeNJT: NJTTransport, @unchecked Sendable {
             operation = "planner"
         } else if query.contains("getTrainDepartureScreens") {
             operation = "board"
+        } else if query.contains("getRailAlertsAdvisories") {
+            operation = "alerts"
         } else {
             operation = "stops"
         }
@@ -486,6 +488,46 @@ final class NJTClientTests: XCTestCase {
         XCTAssertNil(cache.itineraries(for: "other", now: base))
         cache.store([], for: "k2", now: base.addingTimeInterval(700))
         XCTAssertEqual(cache.count, 1, "expired answers go when a new one is stored")
+    }
+
+    // MARK: Travel alerts
+
+    static let alertsReply = FakeNJT.ok("""
+    {"data":{"getRailAlertsAdvisories":[
+      {"abbreviation":"NEC","travelAlerts":[{"body":"NEC train #3915 was cancelled.\\n"}]},
+      {"abbreviation":"BNTN","travelAlerts":[{"body":"Midtown Direct trains are being diverted to Hoboken.\\n"},{"body":"Morris &amp; Essex Lines: possible delays"}]},
+      {"abbreviation":"BNTNM","travelAlerts":null}
+    ]}}
+    """)
+
+    func testCarriesTheTravelAlertsForTheLinesThroughWatchung() async throws {
+        let fake = FakeNJT { operation, _ in
+            switch operation {
+            case "alerts": return Self.alertsReply
+            case "board": return FakeNJT.emptyBoard
+            default: return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+            }
+        }
+        let payload = try await client(fake).fetchLivePayload()
+        XCTAssertEqual(payload.alerts, ["Midtown Direct trains are being diverted to Hoboken.", "Morris & Essex Lines: possible delays"])
+        XCTAssertEqual(fake.calls.filter { $0.operation == "alerts" }.count, 1)
+
+        // When they don't load, the last ones stay.
+        let down = FakeNJT { operation, _ in
+            switch operation {
+            case "alerts": return NJTHTTPResponse(status: 500, body: Data("{}".utf8))
+            case "board": return FakeNJT.emptyBoard
+            default: return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+            }
+        }
+        let next = try await client(down).fetchLivePayload(previous: payload)
+        XCTAssertEqual(next.alerts, payload.alerts)
+
+        // The widget doesn't ask.
+        let widget = FakeNJT { operation, _ in operation == "board" ? FakeNJT.emptyBoard : FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM") }
+        let quiet = try await client(widget).fetchLivePayload(previous: payload, includeAlerts: false)
+        XCTAssertNil(quiet.alerts)
+        XCTAssertFalse(widget.calls.contains { $0.operation == "alerts" })
     }
 
     // MARK: Stop lists

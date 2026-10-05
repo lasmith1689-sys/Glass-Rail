@@ -95,6 +95,8 @@ public struct BoardState: Equatable, Sendable {
     public var currentKeys: [String]
     /// The journey dot, 0...1 along origin to destination.
     public var progress: Double
+    /// NJ Transit's travel alerts for the lines through home (live data only).
+    public var serviceAlerts: [String]
 }
 
 extension BoardState {
@@ -285,7 +287,8 @@ public enum BoardEngine {
             heroStops: heroStops,
             heroConnections: heroConnections,
             currentKeys: direction.compactMap(\.key),
-            progress: progress
+            progress: progress,
+            serviceAlerts: alerts ? (payload.alerts ?? []) : []
         )
     }
 

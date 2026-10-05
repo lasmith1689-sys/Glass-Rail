@@ -198,7 +198,9 @@ final class DisruptionTests: XCTestCase {
         let toHoboken = Set(payload.trips.filter { $0.fromId == "watchung" && $0.toId == "hoboken" }.compactMap(\.trainId))
         XCTAssertTrue(cityBound.isSubset(of: toHoboken))
         XCTAssertEqual(Set(payload.unanswered ?? []), ["hoboken|watchung", "penn|watchung"], "the rides home need the planner")
-        XCTAssertEqual(board(payload, destination: "hoboken").hero?.trip.trainId, "6216")
+        let state = board(payload, destination: "hoboken")
+        XCTAssertEqual(state.hero?.trip.trainId, "6216")
+        XCTAssertEqual(state.feedMode, .live, "Watchung Avenue's board answered for this direction")
     }
 
     func testWhenTheTimetableSaysNoTrainsTheBoardAddsNone() async throws {

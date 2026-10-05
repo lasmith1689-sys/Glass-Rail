@@ -77,6 +77,10 @@ public enum Stations {
 public enum UserConfig {
     public static let homeId = "watchung"
     public static let destinationIds = ["hoboken", "penn"]
+    /// NJ Transit's codes for the lines through home, whose travel alerts the
+    /// board shows: the Montclair-Boonton Line (Hoboken trains) and the
+    /// Montclair Line (Midtown Direct trains to New York).
+    public static let alertLines = ["BNTN", "BNTNM"]
     /// Nearest stations to fall back on when home has no service, closest first.
     /// The Montclair Branch runs no weekend trains north of Bay Street, so on a
     /// Saturday or Sunday Watchung Avenue is dead while Bay Street is not.

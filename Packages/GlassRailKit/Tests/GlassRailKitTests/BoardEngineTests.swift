@@ -198,6 +198,17 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(BoardEngine.trackedTrainIds(base: manyViews, pin: nil, rideCache: nil).count, BoardEngine.stopListTrains)
     }
 
+    // MARK: Travel alerts
+
+    func testShowsNJTransitsTravelAlertsOnlyWithLiveData() {
+        var live = payload(weekday)
+        live.alerts = ["Midtown Direct trains are being diverted to Hoboken."]
+        XCTAssertEqual(compute(live).serviceAlerts, ["Midtown Direct trains are being diverted to Hoboken."])
+        var sample = payload(weekday, kind: .sample)
+        sample.alerts = ["Midtown Direct trains are being diverted to Hoboken."]
+        XCTAssertEqual(compute(sample).serviceAlerts, [])
+    }
+
     // MARK: One way per train
 
     func testListsTheBestWayToCatchEachTrainHomeAndKeepsAPinnedOne() {

@@ -116,13 +116,24 @@ public struct Payload: Codable, Equatable, Sendable {
     /// Directions whose lookup failed with nothing to carry over. Their trips
     /// are unknown, which is not the same as none.
     public var unanswered: [String]?
+    /// NJ Transit's travel alerts for the lines through home (see
+    /// `UserConfig.alertLines`); nil when they weren't fetched.
+    public var alerts: [String]?
 
-    public init(generatedAt: Date, source: PayloadSource, trips: [Trip], carriedOver: [String: Date]? = nil, unanswered: [String]? = nil) {
+    public init(
+        generatedAt: Date,
+        source: PayloadSource,
+        trips: [Trip],
+        carriedOver: [String: Date]? = nil,
+        unanswered: [String]? = nil,
+        alerts: [String]? = nil
+    ) {
         self.generatedAt = generatedAt
         self.source = source
         self.trips = trips
         self.carriedOver = carriedOver
         self.unanswered = unanswered
+        self.alerts = alerts
     }
 
     /// When one direction's trips were fetched: `generatedAt`, or earlier for

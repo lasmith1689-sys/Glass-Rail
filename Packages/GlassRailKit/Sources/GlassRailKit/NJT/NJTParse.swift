@@ -368,6 +368,21 @@ public enum NJTParse {
         return Double((a.note?.utf16.count ?? 0) - (b.note?.utf16.count ?? 0))
     }
 
+    // MARK: Travel alerts
+
+    /// The travel alerts for `lines` from a `getRailAlertsAdvisories` answer,
+    /// cleaned of markup, each once, in NJ Transit's order.
+    public static func parseRailAlerts(_ groups: [JSON], lines: [String]) -> [String] {
+        var alerts: [String] = []
+        for group in groups where lines.contains(clean(group["abbreviation"])) {
+            for alert in group["travelAlerts"]?.arrayValue ?? [] {
+                let text = clean(alert["body"])
+                if !text.isEmpty, !alerts.contains(text) { alerts.append(text) }
+            }
+        }
+        return alerts
+    }
+
     // MARK: Stop lists
 
     /// Valid, de-duplicated train numbers from a comma-separated list, capped

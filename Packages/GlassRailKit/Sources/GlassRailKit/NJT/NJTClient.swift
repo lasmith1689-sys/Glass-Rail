@@ -128,6 +128,18 @@ public struct NJTClient: Sendable {
         return data
     }
 
+    /// NJ Transit's travel alerts for `lines` (see `NJTParse.parseRailAlerts`).
+    public func fetchRailAlerts(lines: [String] = UserConfig.alertLines) async throws -> [String] {
+        let data = try await post(query: NJTQueries.railAlerts, variables: [:])
+        return NJTParse.parseRailAlerts(data["getRailAlertsAdvisories"]?.arrayValue ?? [], lines: lines)
+    }
+
+    /// The alerts, or nil when they weren't wanted or didn't load.
+    func railAlertsIfWanted(_ wanted: Bool) async -> [String]? {
+        guard wanted else { return nil }
+        return try? await fetchRailAlerts()
+    }
+
     public func fetchDepartureBoard(_ stationName: String) async throws -> [JSON] {
         let data = try await post(query: NJTQueries.departureBoard, variables: ["station": .string(stationName)])
         return data["getTrainDepartureScreens"]?["items"]?.arrayValue ?? []
@@ -370,8 +382,12 @@ public struct NJTClient: Sendable {
         pairs: [ODPair] = Alternates.defaultPairs(),
         plannerOffsets: [Int] = NJTQueries.plannerOffsetsMinutes,
         required: Set<String>? = nil,
-        previous: Payload? = nil
+        previous: Payload? = nil,
+        includeAlerts: Bool = true
     ) async throws -> Payload {
+        // Travel alerts load alongside everything else; when they don't, the
+        // last ones stay (an alert shouldn't vanish because one request failed).
+        async let fetchedAlerts = railAlertsIfWanted(includeAlerts)
         func isRequired(_ pair: ODPair) -> Bool { required?.contains(pair.key) ?? true }
 
         var stationIds: [String] = []
@@ -477,7 +493,8 @@ public struct NJTClient: Sendable {
             ),
             trips: allTrips,
             carriedOver: carried.isEmpty ? nil : carried,
-            unanswered: unanswered.isEmpty ? nil : unanswered
+            unanswered: unanswered.isEmpty ? nil : unanswered,
+            alerts: await fetchedAlerts ?? (includeAlerts ? previous?.alerts : nil)
         )
     }
 

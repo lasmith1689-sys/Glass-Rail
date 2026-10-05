@@ -117,7 +117,8 @@ enum WidgetData {
                 pairs: WidgetPlanner.pairs(destinationId: destinationId),
                 plannerOffsets: WidgetPlanner.plannerOffsetsMinutes,
                 required: [shown.key],
-                previous: saved?.payload
+                previous: saved?.payload,
+                includeAlerts: false
             )
             let ids = WidgetPlanner.trainsNeedingStops(payload: payload, destinationId: destinationId, now: now)
             let runs = await client.fetchTrainRuns(ids)

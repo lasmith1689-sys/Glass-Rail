@@ -78,6 +78,19 @@ public enum NJTQueries {
 
     """
 
+    /// NJ Transit's travel alerts, grouped by rail line ("BNTN" is the
+    /// Montclair-Boonton Line), as its own app shows them.
+    public static let railAlerts = """
+      query RailAlerts {
+        getRailAlertsAdvisories {
+          abbreviation
+          travelAlerts {
+            body
+          }
+        }
+      }
+    """
+
     /// Planner lookups start now and 75, 150 and 225 minutes out, so one
     /// refresh reaches the next few hours. Each answers with only three
     /// itineraries, ranked by arrival, so on their own they skip trains (a

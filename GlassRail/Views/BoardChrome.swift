@@ -225,3 +225,56 @@ struct FooterBar: View {
         }
     }
 }
+
+/// NJ Transit's travel alerts for the lines through Watchung Avenue, the red
+/// box in its own app: the first in full, the rest on a tap.
+struct ServiceAlertBanner: View {
+    let alerts: [String]
+    @State private var expanded = false
+    @Environment(\.theme) private var theme
+
+    private var shown: [String] { expanded ? alerts : Array(alerts.prefix(1)) }
+
+    var body: some View {
+        Button {
+            withAnimation(.snappy) { expanded.toggle() }
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Accent.cancel)
+                    .padding(.top, 1)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(alerts.count == 1 ? "Service alert" : "Service alerts · \(alerts.count)").kicker()
+                    ForEach(Array(shown.enumerated()), id: \.offset) { _, text in
+                        Text(text)
+                            .grFont(12.5, .medium, style: .footnote)
+                            .foregroundStyle(theme.ink.opacity(0.92))
+                            .lineLimit(expanded ? nil : 4)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if alerts.count > 1 {
+                        Text(expanded ? "Show less" : "Show all \(alerts.count)")
+                            .grFont(11.5, .semibold, style: .caption)
+                            .foregroundStyle(theme.ink.opacity(0.75))
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .glassPanel(radius: 18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Accent.cancel.opacity(0.55), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(alerts.count > 1 ? (expanded ? "Shows only the first alert" : "Shows every alert") : "")
+    }
+}
