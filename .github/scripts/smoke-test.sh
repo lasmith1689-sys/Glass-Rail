@@ -148,9 +148,18 @@ lifecycle_check() {
   run_limited 30 xcrun simctl io "$UDID" screenshot --type=png "$OUT/04c-backgrounded.png" >/dev/null 2>&1
   run_limited 60 "$OCR" "$OUT/04c-backgrounded.png" > "$OUT/ocr/04c-backgrounded.txt" 2>/dev/null
   cat "$OUT/ocr/04c-backgrounded.txt" >> "$OCR_TXT"
-  log=$(activity_log 2m)
-  local ended
-  ended=$(printf '%s\n' "$log" | grep "ended on suspend" | tail -1)
+  # On a busy runner Settings can take longer than that to come up, and ActivityKit longer to end
+  # the activity: keep looking for the line for up to 40 seconds before calling it missing.
+  local ended="" waited=0
+  while :; do
+    log=$(activity_log 2m)
+    ended=$(printf '%s\n' "$log" | grep "ended on suspend" | tail -1)
+    [ -n "$ended" ] && break
+    [ "$waited" -ge 40 ] && break
+    sleep 5
+    waited=$((waited + 5))
+  done
+  [ "$waited" -gt 0 ] && echo "::notice title=Live Activity::The end on suspend was logged ${waited}s after the first look."
   if [ -n "$ended" ] && [[ "$ended" == *"dismissal at"* ]] && [[ "$ended" == *"state ended"* ]]; then
     echo "::notice title=Live Activity::Backgrounded: ${ended#*Live Activity }"
   else

@@ -59,6 +59,17 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
     var log: [String] = []
     print("Soak: \(rounds) refreshes, \(Int(interval)) s apart, from \(Format.time(Date())) Eastern")
 
+    /// A train past its time that the referee's board still lists with no
+    /// countdown, which the app dropped because NJ Transit's own data said it
+    /// had gone: its stop list marks it departed from the station, or the
+    /// app's own read of the board no longer listed it. The referee's board,
+    /// cached for up to 30 seconds, lags; a countdown still means it's coming.
+    func departed(_ train: String, scheduled: Date, entry: BoardEntry, at station: Station, trips: [Trip], now: Date) -> Bool {
+        guard scheduled < now, entry.countdownMinutes == nil else { return false }
+        let stop = runs[train]?.first { Journey.stopMatchesStation($0.name, station.ref) }
+        return stop?.departed == true || trips.allSatisfy { $0.listedAt == nil }
+    }
+
     for round in 1...rounds {
         if round > 1 { try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000)) }
         let started = Date()
@@ -112,6 +123,8 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                 guard let view = state.direction.first(where: { $0.trip.trainId == train }) else {
                     if mine.allSatisfy({ $0.transferCount > 0 }) {
                         notes.append("round \(round) \(destination): \(train) left out, a later trip beats it")
+                    } else if departed(train, scheduled: scheduled, entry: entry, at: Stations.watchung, trips: mine, now: truthAt) {
+                        notes.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) dropped as gone, as NJ Transit's own data said; the referee's board still listed it")
                     } else {
                         problems.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) is in the app's trips but not on screen")
                     }
@@ -159,6 +172,11 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                     continue
                 }
                 guard let view = state.direction.first(where: { $0.trip.trainId == train && $0.trip.transferCount == 0 }) else {
+                    if let station = Stations.station(terminal),
+                       departed(train, scheduled: leaves, entry: there, at: station, trips: rides, now: checkedAt) {
+                        notes.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) dropped as gone, as NJ Transit's own data said; the referee's board still listed it")
+                        continue
+                    }
                     problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is in the app's trips but not on screen as a direct ride")
                     continue
                 }
