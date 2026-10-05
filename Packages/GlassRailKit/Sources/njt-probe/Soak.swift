@@ -67,15 +67,27 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
     /// the app looks up each train on it (`NJTQueries.seedHorizonMinutes`).
     let boardReach = TimeInterval(NJTQueries.seedHorizonMinutes * 60)
 
-    /// A train past its time that the referee's board still lists with no
-    /// countdown, which the app dropped because NJ Transit's own data said it
-    /// had gone: its stop list marks it departed from the station, or the
-    /// app's own read of the board no longer listed it. The referee's board,
-    /// cached for up to 30 seconds, lags; a countdown still means it's coming.
+    /// A train the referee's board still lists, which the app dropped because
+    /// NJ Transit's own data said it had gone: its stop list marks it departed
+    /// from the station (that wins even over a countdown: the referee's board
+    /// is cached for up to 30 seconds, and at 5:17 PM on 5 October it still
+    /// counted down 6252 at Watchung Avenue after the app, rightly, had let it
+    /// go), or, past its time with no countdown, the app's own read of the
+    /// board no longer listed it.
     func departed(_ train: String, scheduled: Date, entry: BoardEntry, at station: Station, trips: [Trip], now: Date) -> Bool {
-        guard scheduled < now, entry.countdownMinutes == nil else { return false }
         let stop = runs[train]?.first { Journey.stopMatchesStation($0.name, station.ref) }
-        return stop?.departed == true || trips.allSatisfy { $0.listedAt == nil }
+        if stop?.departed == true { return true }
+        guard scheduled < now, entry.countdownMinutes == nil else { return false }
+        return trips.allSatisfy { $0.listedAt == nil }
+    }
+
+    /// What NJ Transit said about a train the app left off the screen, so a
+    /// problem explains itself: its stop list at the station and the board.
+    func evidence(_ train: String, entry: BoardEntry, at station: Station) -> String {
+        let stop = runs[train]?.first { Journey.stopMatchesStation($0.name, station.ref) }
+        let listed = stop.map { "stop list \($0.time.map(Format.time) ?? "no time")\($0.departed ? " departed" : " not departed")" } ?? "no stop list"
+        let board = entry.countdownMinutes.map { "board in \($0) min" } ?? "board \(entry.departureRaw ?? "?") \(entry.status.map { "\($0)" } ?? "")"
+        return "(\(listed); \(board))"
     }
 
     /// The time shown is within 3 minutes of the board's countdown or of the
@@ -143,7 +155,7 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                     } else if departed(train, scheduled: scheduled, entry: entry, at: Stations.watchung, trips: mine, now: truthAt) {
                         notes.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) dropped as gone, as NJ Transit's own data said; the referee's board still listed it")
                     } else {
-                        problems.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) is in the app's trips but not on screen")
+                        problems.append("round \(round) \(destination): \(train) \(Format.time(scheduled)) is in the app's trips but not on screen \(evidence(train, entry: entry, at: Stations.watchung))")
                     }
                     continue
                 }
@@ -194,7 +206,7 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                         notes.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) dropped as gone, as NJ Transit's own data said; the referee's board still listed it")
                         continue
                     }
-                    problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is in the app's trips but not on screen as a direct ride")
+                    problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is in the app's trips but not on screen as a direct ride \(Stations.station(terminal).map { evidence(train, entry: there, at: $0) } ?? "")")
                     continue
                 }
                 if let countdown = there.countdownMinutes, let station = Stations.station(terminal) {
