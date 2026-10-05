@@ -294,7 +294,7 @@ capture 06-stale 5 'STALE && outdated' -GlassRailDemo stale
 capture 07-sample 5 'SAMPLE && SCHEDULED && !DELAYED && !ON TIME' -GlassRailDemo sample
 capture 08-later-sheet 6 'Arrives [0-9]' -GlassRailDemo delayed -GlassRailSheet later
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
-capture 10-settings 5 'Home station && Watchung Avenue && Choose a look' -GlassRailSheet settings
+capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Choose a look' -GlassRailSheet settings
 # Any NJ Transit rail station can be home, Watchung Avenue first as the default.
 capture 10c-home-station 5 'Home station && Watchung Avenue && Absecon && Allendale' -GlassRailSheet home
 # NJ Transit's travel alerts: a red link in the header that takes no room, so "Later this way"

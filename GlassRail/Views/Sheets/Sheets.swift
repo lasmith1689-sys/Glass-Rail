@@ -434,11 +434,17 @@ struct HomeStationRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(station.name)
-                        .grFont(15.2, .semibold, style: .headline, maxScale: 1.4)
-                    Text(station.id == UserConfig.defaultHomeId ? "Default · trains to Hoboken and Penn Station NY" : "Trains to Hoboken and Penn Station NY")
+                    HStack(spacing: 6) {
+                        Text(station.name)
+                            .grFont(15.2, .semibold, style: .headline, maxScale: 1.4)
+                        if station.id == UserConfig.defaultHomeId {
+                            DefaultPill()
+                        }
+                    }
+                    Text(station.lineTitles.joined(separator: " · "))
                         .grFont(11.5, style: .caption, maxScale: 1.4)
                         .foregroundStyle(theme.ink.opacity(0.75))
+                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Text("Change")
@@ -455,6 +461,22 @@ struct HomeStationRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Home station, \(station.name)")
         .accessibilityHint("Choose another station")
+    }
+}
+
+/// "Default" beside Watchung Avenue, in Settings and the station picker.
+struct DefaultPill: View {
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Text("Default")
+            .grFont(10, .bold, style: .caption2, maxScale: 1.3)
+            .tracking(0.5)
+            .textCase(.uppercase)
+            .foregroundStyle(theme.ink.opacity(0.7))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .pillSurface()
     }
 }
 
@@ -508,14 +530,7 @@ struct HomeStationPicker: View {
                                         Text(station.name)
                                             .grFont(14.4, .semibold, style: .subheadline, maxScale: 1.4)
                                         if station.id == UserConfig.defaultHomeId {
-                                            Text("Default")
-                                                .grFont(10, .bold, style: .caption2, maxScale: 1.3)
-                                                .tracking(0.5)
-                                                .textCase(.uppercase)
-                                                .foregroundStyle(theme.ink.opacity(0.7))
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .pillSurface()
+                                            DefaultPill()
                                         }
                                     }
                                     Text(station.lineTitles.joined(separator: " · "))
