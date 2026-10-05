@@ -141,7 +141,9 @@ func probeNoService() async -> Bool {
     // The whole refresh as the app makes it at those moments, and what the
     // board then shows each way.
     for (name, at) in [("Saturday", saturday), ("Small hours", smallHours)] {
-        let client = NJTClient(transport: Recorder(), clock: { at })
+        // Departure boards are live, so they say nothing about another moment:
+        // the simulated refresh gets empty ones and stands on the timetable.
+        let client = NJTClient(transport: TimetableOnly(Recorder()), clock: { at })
         let weekend = name == "Saturday"
         var report: [String] = []
         do {
@@ -200,4 +202,22 @@ func probeNoService() async -> Bool {
         .replacingOccurrences(of: "\n", with: "%0A")
     print("::error title=No-service check::\(escaped)")
     return false
+}
+
+
+/// Passes planner and stop-list queries to NJ Transit, and answers departure
+/// board queries with an empty board (see the simulated refreshes above).
+final class TimetableOnly: NJTTransport, @unchecked Sendable {
+    let inner: any NJTTransport
+
+    init(_ inner: any NJTTransport) {
+        self.inner = inner
+    }
+
+    func send(_ body: Data) async throws -> NJTHTTPResponse {
+        if let query = (try? JSON.parse(body))?["query"]?.jsString, query.contains("getTrainDepartureScreens") {
+            return NJTHTTPResponse(status: 200, body: Data(#"{"data":{"getTrainDepartureScreens":{"items":[]}}}"#.utf8))
+        }
+        return try await inner.send(body)
+    }
 }

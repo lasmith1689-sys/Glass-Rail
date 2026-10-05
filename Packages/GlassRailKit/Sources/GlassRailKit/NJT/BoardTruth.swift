@@ -21,6 +21,8 @@ public enum BoardTruth {
     ///
     /// Trips on trains the boards don't mention are left as the planner gave
     /// them, and so is every trip when the home station's board didn't load.
+    /// Only trains within `window` of `fetchedAt` count: a board's times carry
+    /// no date, so further out they could belong to another day.
     public static func reconcile(
         _ trips: [Trip],
         pair: ODPair,
@@ -38,16 +40,29 @@ public enum BoardTruth {
         return trips
     }
 
+    /// How far from the board's reading its trains are trusted: 90 minutes
+    /// back (a very late train) to 6 hours ahead.
+    public static let window: (back: TimeInterval, ahead: TimeInterval) = (90 * 60, 6 * 3600)
+
+    static func trusted(_ time: Date, fetchedAt: Date) -> Bool {
+        time >= fetchedAt.addingTimeInterval(-window.back) && time <= fetchedAt.addingTimeInterval(window.ahead)
+    }
+
     /// True when the home station's board lists a train bound for the city,
     /// which answers "what leaves for the city" even if the planner doesn't.
-    public static func homeBoardAnswers(_ homeBoard: [String: BoardEntry]?) -> Bool {
-        homeBoard?.values.contains { NJTParse.isTowardCity($0.destination) } ?? false
+    public static func homeBoardAnswers(_ homeBoard: [String: BoardEntry]?, fetchedAt: Date) -> Bool {
+        homeBoard?.values.contains { entry in
+            guard NJTParse.isTowardCity(entry.destination),
+                  let time = entry.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }) else { return false }
+            return trusted(time, fetchedAt: fetchedAt)
+        } ?? false
     }
 
     static func fromHome(_ trips: [Trip], pair: ODPair, homeBoard: [String: BoardEntry], fetchedAt: Date) -> [Trip] {
         var result = trips
         for (train, entry) in homeBoard where NJTParse.isTowardCity(entry.destination) {
-            guard let departure = entry.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }) else { continue }
+            guard let departure = entry.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }),
+                  trusted(departure, fetchedAt: fetchedAt) else { continue }
             let served = NJTParse.servedTerminal(entry.destination)
             let planned = result.filter { $0.trainId == train }
             var keep: [Trip]
@@ -83,6 +98,7 @@ public enum BoardTruth {
             guard let origin = originBoard[train],
                   let leaves = origin.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }),
                   let arrives = atHome.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: fetchedAt) }),
+                  trusted(leaves, fetchedAt: fetchedAt),
                   arrives > leaves, arrives.timeIntervalSince(leaves) < 3 * 3600 else { continue }
             if result.contains(where: { $0.trainId == train && $0.transferCount == 0 }) { continue }
             result.append(boardTrip(train, origin, pair: pair, departure: leaves, arrival: arrives, fetchedAt: fetchedAt, terminus: nil))

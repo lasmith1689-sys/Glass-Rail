@@ -4,6 +4,7 @@
 //
 //   swift run --package-path Packages/GlassRailKit njt-probe <out-dir>              the live board now
 //   swift run --package-path Packages/GlassRailKit njt-probe <out-dir> no-service   windows with no trains
+//   swift run --package-path Packages/GlassRailKit njt-probe <out-dir> soak 8 30     the app's refresh loop, 8 rounds 30 s apart
 import Foundation
 import GlassRailKit
 
@@ -52,6 +53,13 @@ func save(_ name: String, _ data: Data) {
 
 if mode == "no-service" {
     let ok = await probeNoService()
+    exit(ok ? 0 : 1)
+}
+
+if mode == "soak" {
+    let rounds = Int(arguments.dropFirst(2).first ?? "") ?? 8
+    let interval = Double(arguments.dropFirst(3).first ?? "") ?? 30
+    let ok = await runSoak(rounds: max(1, rounds), interval: interval)
     exit(ok ? 0 : 1)
 }
 

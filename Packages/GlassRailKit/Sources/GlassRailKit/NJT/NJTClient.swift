@@ -323,10 +323,14 @@ public struct NJTClient: Sendable {
                         boardIndex: boards[pair.fromId] ?? [:],
                         baseNow: baseNow
                     )
-                    let trips = BoardTruth.reconcile(planned, pair: pair, boards: boards, fetchedAt: baseNow)
+                    // The boards correct the timetable, except when the timetable
+                    // says nothing runs: a board's times carry no date, and on a
+                    // day without service it could be showing another day's.
+                    let timetableSaysNone = !window.failed && window.itineraries.isEmpty
+                    let trips = timetableSaysNone ? planned : BoardTruth.reconcile(planned, pair: pair, boards: boards, fetchedAt: baseNow)
                     // Leaving home, the home station's board says which trains
                     // go, so a planner outage only costs their arrival times.
-                    let answeredByBoard = pair.fromId == UserConfig.homeId && BoardTruth.homeBoardAnswers(homeBoard)
+                    let answeredByBoard = pair.fromId == UserConfig.homeId && BoardTruth.homeBoardAnswers(homeBoard, fetchedAt: baseNow)
                     return (index, trips, window.failed && !answeredByBoard ? window.failureMessage : nil)
                 }
             }

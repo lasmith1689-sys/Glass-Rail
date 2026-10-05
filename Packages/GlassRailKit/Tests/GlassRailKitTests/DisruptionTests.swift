@@ -17,8 +17,9 @@ final class DisruptionTests: XCTestCase {
         return date(String(format: "2026-10-05T%02d:%02d:00.000Z", parts[0] + 4, parts[1]))
     }
 
-    /// Every train on Watchung Avenue's board bound for the city.
-    let cityBound: Set<String> = ["6216", "1074", "6222", "6226", "6230", "6234", "6238", "6242", "6246"]
+    /// Every train on Watchung Avenue's board bound for the city in the next
+    /// 6 hours (6246 at 4:27 PM is further out; see `BoardTruth.window`).
+    let cityBound: Set<String> = ["6216", "1074", "6222", "6226", "6230", "6234", "6238", "6242"]
 
     /// The captured reply for a request; the planner answers the same at any time.
     static func reply(_ operation: String, _ variables: JSON) -> NJTHTTPResponse {
@@ -198,6 +199,23 @@ final class DisruptionTests: XCTestCase {
         XCTAssertTrue(cityBound.isSubset(of: toHoboken))
         XCTAssertEqual(Set(payload.unanswered ?? []), ["hoboken|watchung", "penn|watchung"], "the rides home need the planner")
         XCTAssertEqual(board(payload, destination: "hoboken").hero?.trip.trainId, "6216")
+    }
+
+    func testWhenTheTimetableSaysNoTrainsTheBoardAddsNone() async throws {
+        // A board's times carry no date; on a day the timetable runs nothing at
+        // Watchung Avenue (a weekend), the board is not allowed to add trains.
+        let fake = FakeNJT { operation, variables in
+            operation == "planner" ? FakeNJT.ok(fixture("live-planner-no-trips")) : Self.reply(operation, variables)
+        }
+        let payload = try await client(fake).fetchLivePayload()
+        XCTAssertTrue(payload.trips.filter { $0.fromId == "watchung" || $0.toId == "watchung" }.isEmpty)
+        XCTAssertTrue(board(payload, destination: "hoboken").noService)
+    }
+
+    func testBoardTrainsFarAheadAreLeftToThePlanner() async throws {
+        let payload = try await capturedPayload()
+        // 6246 at 4:27 PM is more than 6 hours after the 9:11 reading.
+        XCTAssertFalse(payload.trips.contains { $0.fromId == "watchung" && $0.trainId == "6246" })
     }
 
     func testRetriesAFailureThatIsLikelyToPassButNotATimeout() async throws {

@@ -160,7 +160,7 @@ jobs:
   njt-live:
     name: NJ Transit live probe (informational)
     runs-on: macos-26
-    timeout-minutes: 15
+    timeout-minutes: 25
     continue-on-error: true
     permissions:
       contents: write # only to force-push the raw replies to the ci-njt-probe branch
@@ -173,6 +173,10 @@ jobs:
       - name: Ask the planner about windows with no trains (next Saturday 10 AM, a weekday 3 AM)
         if: always()
         run: swift run --package-path Packages/GlassRailKit njt-probe njt-probe-out/no-service no-service
+
+      - name: Soak test (the app's refresh loop, 8 rounds 30 s apart, checked against Watchung Avenue's own board)
+        if: always()
+        run: swift run --package-path Packages/GlassRailKit njt-probe njt-probe-out/soak soak 8 30
 
       - name: Publish the raw replies to the ci-njt-probe branch
         if: always() && github.ref == 'refs/heads/main'
