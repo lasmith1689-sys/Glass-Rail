@@ -22,9 +22,9 @@ final class LiveFixtureTests: XCTestCase {
     func testReadsTheRealDepartureBoard() {
         let index = NJTParse.buildBoardIndex(boardItems)
         XCTAssertEqual(index.count, 19)
-        XCTAssertEqual(index["6230"], BoardEntry(track: "2", note: nil, departureRaw: "11:58 AM", status: nil))
+        XCTAssertEqual(index["6230"], BoardEntry(track: "2", note: nil, departureRaw: "11:58 AM", status: nil, destination: "New York -SEC"))
         // "in 23 Min" says nothing about punctuality and is not a note.
-        XCTAssertEqual(index["6237"], BoardEntry(track: "1", note: nil, departureRaw: "12:09 PM", status: nil))
+        XCTAssertEqual(index["6237"], BoardEntry(track: "1", note: nil, departureRaw: "12:09 PM", status: nil, destination: "MSU"))
         XCTAssertEqual(NJTParse.rawToDate(index["6258"]?.departureRaw ?? "", baseNow: captured), et("18:17"))
     }
 

@@ -181,16 +181,22 @@ public enum BoardEngine {
         // only trusted on live data: sample data must never show a train as late.
         let runs: Runs = alerts ? input.runs : [:]
 
-        let base = Status.selectTripViews(payload.trips, fromId: from.id, toId: to.id, now: now, alerts: alerts, changes: activeChanges)
+        // A tapped ("pinned") train takes over the hero card. While upcoming it
+        // is picked from the normal list; once it departs it is retained as a
+        // ride until shortly after arrival, so the dot can follow the trip.
+        let activePinKey = (input.pin?.dirKey == dirKey) ? input.pin?.key : nil
+
+        // Connections that a later trip beats are left out; the pinned one
+        // never is.
+        let base = Status.hidingDominatedConnections(
+            Status.selectTripViews(payload.trips, fromId: from.id, toId: to.id, now: now, alerts: alerts, changes: activeChanges),
+            keeping: activePinKey
+        )
         let tracked = trackedTrainIds(base: base, pin: input.pin, rideCache: input.rideCache)
         let direction = base
             .map { applyTiming($0, runs: runs, origin: from, dest: to) }
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
 
-        // A tapped ("pinned") train takes over the hero card. While upcoming it
-        // is picked from the normal list; once it departs it is retained as a
-        // ride until shortly after arrival, so the dot can follow the trip.
-        let activePinKey = (input.pin?.dirKey == dirKey) ? input.pin?.key : nil
         var upcomingIndex: Int? = direction.isEmpty ? nil : 0
         if let activePinKey, let pinnedIndex = direction.firstIndex(where: { $0.key == activePinKey }) {
             upcomingIndex = pinnedIndex
@@ -229,7 +235,9 @@ public enum BoardEngine {
                 homeId: UserConfig.homeId,
                 fallbackIds: UserConfig.fallbackOriginIds
             ) {
-                let views = Status.selectTripViews(payload.trips, fromId: route.fromId, toId: route.toId, now: now, alerts: alerts, changes: activeChanges)
+                let views = Status.hidingDominatedConnections(
+                    Status.selectTripViews(payload.trips, fromId: route.fromId, toId: route.toId, now: now, alerts: alerts, changes: activeChanges)
+                )
                 if !views.isEmpty, let altFrom = Stations.station(route.fromId), let altTo = Stations.station(route.toId) {
                     alternate = Alternate(from: altFrom, to: altTo, views: Array(views.prefix(3)))
                     break

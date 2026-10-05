@@ -130,10 +130,12 @@ public enum WidgetPlanner {
     /// widget reload right after the app refreshed costs no network at all.
     public static let reuseSavedDataFor: TimeInterval = 5 * 60
 
-    /// Planner lookups per direction when the widget fetches for itself: now
-    /// and 75 minutes out (the app makes four). That covers the next two to
-    /// three hours both ways, well past the next reload, and the other
-    /// direction's trains for the 2 PM switch.
+    /// Clock lookups per direction when the widget fetches for itself: now
+    /// and 75 minutes out (the app makes four). With the per-train lookups
+    /// for the trains on Watchung Avenue's board in that time (see
+    /// `NJTClient.plannerSeeds`), that covers the next two to three hours
+    /// both ways, well past the next reload, and the other direction's trains
+    /// for the 2 PM switch.
     public static let plannerOffsetsMinutes = [0, 75]
 
     /// Whether the app's saved board is fresh enough to use without fetching.

@@ -305,6 +305,56 @@ final class StatusModelTests: XCTestCase {
         XCTAssertEqual(Status.rideView(transfer, now: now, alerts: true, changes: noChanges)?.trip.trainId, "1012")
     }
 
+    // MARK: hidingDominatedConnections
+
+    func homeViews(_ trips: [Trip]) -> [TripView] {
+        Status.selectTripViews(trips, fromId: "hoboken", toId: "watchung", now: now, alerts: true, changes: noChanges)
+    }
+
+    func home(_ train: String, leaves: Double, arrives: Double, via: [String] = [], status: TripStatus? = nil) -> Trip {
+        trip(trainId: train, fromId: "hoboken", toId: "watchung", departure: iso(leaves), arrival: iso(arrives),
+             transferCount: via.count, transferAt: via, status: status)
+    }
+
+    func testHidesAConnectionThatALaterTripBeats() {
+        // Three ways to the same arrival: only the latest is worth taking, and
+        // the earliest also loses to a direct train that gets there sooner.
+        let views = homeViews([
+            home("59", leaves: 14, arrives: 83, via: ["Secaucus"]),
+            home("1635", leaves: 17, arrives: 83, via: ["Secaucus"]),
+            home("657", leaves: 38, arrives: 83, via: ["Newark Broad"]),
+            home("1011", leaves: 33, arrives: 69),
+        ])
+        XCTAssertEqual(Status.hidingDominatedConnections(views).map(\.trip.trainId), ["1011", "657"])
+    }
+
+    func testNeverHidesADirectTrainThePinnedTripOrForACancelledOne() {
+        let fast = home("881", leaves: 15, arrives: 60, via: ["Newark Broad"])
+        // A direct train stays even when a later connection gets there first.
+        let slowDirect = home("1009", leaves: 10, arrives: 80)
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([slowDirect, fast])).map(\.trip.trainId), ["1009", "881"])
+
+        // The pinned connection stays even when beaten.
+        let beaten = home("433", leaves: 5, arrives: 90, via: ["Newark Broad"])
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([beaten, fast])).map(\.trip.trainId), ["881"])
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([beaten, fast]), keeping: "hoboken|watchung|433").map(\.trip.trainId), ["433", "881"])
+
+        // A cancelled train is no better option.
+        let cancelled = home("339", leaves: 20, arrives: 60, status: .cancelled)
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([beaten, cancelled])).map(\.trip.trainId), ["433", "339"])
+    }
+
+    func testComparesExpectedTimesSoADelayCanMakeAConnectionWorthTaking() {
+        // On time, the 6:38 beats the 6:14; running 30 minutes late, it doesn't.
+        let early = home("59", leaves: 14, arrives: 83, via: ["Secaucus"])
+        let onTime = home("657", leaves: 38, arrives: 83, via: ["Newark Broad"])
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([early, onTime])).map(\.trip.trainId), ["657"])
+        var late = onTime
+        late.status = .delayed
+        late.statusNote = "Delayed 30 min"
+        XCTAssertEqual(Status.hidingDominatedConnections(homeViews([early, late])).map(\.trip.trainId), ["59", "657"])
+    }
+
     // MARK: tripKey
 
     func testBuildsAStableDirectionScopedKeyAndFailsSafelyWithoutATrainId() {

@@ -40,10 +40,17 @@ public struct URLSessionTransport: NJTTransport {
 public struct NJTClient: Sendable {
     public var transport: any NJTTransport
     public var clock: @Sendable () -> Date
+    /// Answers to per-train lookups, reused across refreshes (see `PlannerCache`).
+    public var plannerCache: PlannerCache
 
-    public init(transport: any NJTTransport = URLSessionTransport(), clock: @escaping @Sendable () -> Date = { Date() }) {
+    public init(
+        transport: any NJTTransport = URLSessionTransport(),
+        clock: @escaping @Sendable () -> Date = { Date() },
+        plannerCache: PlannerCache = PlannerCache()
+    ) {
         self.transport = transport
         self.clock = clock
+        self.plannerCache = plannerCache
     }
 
     // MARK: GraphQL
@@ -97,16 +104,17 @@ public struct NJTClient: Sendable {
         return data["getTrainDepartureScreens"]?["items"]?.arrayValue ?? []
     }
 
-    /// Itineraries from `origin` to `destination` leaving from `moment` on.
+    /// Itineraries from `origin` to `destination` leaving from `moment` on,
+    /// or with `arriveBy`, arriving by `moment` (latest departure first).
     /// Empty when NJ Transit says there are none: it reports that as a
     /// GraphQL error, not an empty list (see `NJTParse.isNoTripsReply`), and
     /// that one reply is an answer, not a failure. Every other error throws.
-    public func fetchTripPlanner(origin: String, destination: String, at moment: Date) async throws -> [JSON] {
+    public func fetchTripPlanner(origin: String, destination: String, at moment: Date, arriveBy: Bool = false) async throws -> [JSON] {
         let when = NJTParse.plannerMoment(moment)
         let payload = try await reply(query: NJTQueries.tripPlanner, variables: [
             "origin": .string(origin),
             "destination": .string(destination),
-            "timeOption": .string("D"),
+            "timeOption": .string(arriveBy ? "A" : "D"),
             "date": .string(when.date),
             "time": .string(when.time),
             "accessible": .bool(false),
@@ -123,9 +131,17 @@ public struct NJTClient: Sendable {
     }
 
     /// Planner lookups spread over the next few hours (four for the app, see
-    /// `NJTQueries.plannerOffsetsMinutes`), with a record of which ones failed.
-    public func plannerWindow(origin: String, destination: String, offsets: [Int] = NJTQueries.plannerOffsetsMinutes) async -> PlannerWindow {
+    /// `NJTQueries.plannerOffsetsMinutes`), with a record of which ones failed,
+    /// plus one per train in `seeds`, all at once. A seed that fails only
+    /// costs its train: the window still stands on the clock lookups.
+    public func plannerWindow(
+        origin: String,
+        destination: String,
+        offsets: [Int] = NJTQueries.plannerOffsetsMinutes,
+        seeds: [PlannerSeed] = []
+    ) async -> PlannerWindow {
         let base = clock()
+        // Indexes below `offsets.count` are the clock lookups, then the seeds.
         let results = await withTaskGroup(of: (Int, Result<[JSON], Error>).self) { group -> [Int: Result<[JSON], Error>] in
             for (index, minutes) in offsets.enumerated() {
                 group.addTask {
@@ -134,6 +150,15 @@ public struct NJTClient: Sendable {
                         return (index, .success(try await fetchTripPlanner(origin: origin, destination: destination, at: at)))
                     } catch {
                         return (index, .failure(error))
+                    }
+                }
+            }
+            for (number, seed) in seeds.enumerated() {
+                group.addTask {
+                    do {
+                        return (offsets.count + number, .success(try await seedLookup(origin: origin, destination: destination, seed: seed)))
+                    } catch {
+                        return (offsets.count + number, .failure(error))
                     }
                 }
             }
@@ -155,7 +180,47 @@ public struct NJTClient: Sendable {
                 window.failedLookups.append(index)
             }
         }
+        window.seedLookups = seeds.count
+        for number in seeds.indices {
+            if case .success(let list)? = results[offsets.count + number] {
+                window.itineraries.append(contentsOf: list)
+            } else {
+                window.failedSeeds += 1
+            }
+        }
         return window
+    }
+
+    /// One per-train lookup, answered from `plannerCache` while fresh.
+    func seedLookup(origin: String, destination: String, seed: PlannerSeed) async throws -> [JSON] {
+        let when = NJTParse.plannerMoment(seed.at)
+        let key = "\(origin)|\(destination)|\(seed.arriveBy ? "A" : "D")|\(when.date) \(when.time)"
+        if let cached = plannerCache.itineraries(for: key, now: clock()) { return cached }
+        let list = try await fetchTripPlanner(origin: origin, destination: destination, at: seed.at, arriveBy: seed.arriveBy)
+        plannerCache.store(list, for: key, now: clock())
+        return list
+    }
+
+    /// The home station's own trains this way, from its departure board, as
+    /// planner lookups: each train leaving home for the city on the way in,
+    /// "leave at" its departure; each train coming out of the city on the
+    /// way home, "arrive by" its time at home, which NJ Transit answers with
+    /// the latest way to catch it. The planner gives three itineraries per
+    /// lookup, ranked by arrival, so lookups spaced by the clock skip trains
+    /// and one per train doesn't. Soonest first, at most `limit`, from now to
+    /// `horizon` ahead; none for a trip that doesn't start or end at home.
+    public static func plannerSeeds(for pair: ODPair, homeBoard: [String: BoardEntry], now: Date, horizon: TimeInterval, limit: Int) -> [PlannerSeed] {
+        let home = UserConfig.homeId
+        guard limit > 0, pair.fromId == home || pair.toId == home else { return [] }
+        let leavingHome = pair.fromId == home
+        var times = Set<Date>()
+        for entry in homeBoard.values where NJTParse.isTowardCity(entry.destination) == leavingHome {
+            guard let raw = entry.departureRaw, let time = NJTParse.rawToDate(raw, baseNow: now) else { continue }
+            if time >= now.addingTimeInterval(-Status.departureGrace), time <= now.addingTimeInterval(horizon) {
+                times.insert(time)
+            }
+        }
+        return times.sorted().prefix(limit).map { PlannerSeed(at: $0, arriveBy: !leavingHome) }
     }
 
     /// The itineraries from `plannerWindow`, for callers that only need them.
@@ -193,16 +258,33 @@ public struct NJTClient: Sendable {
     }
 
     /// Trips per pair, in pair order, plus the failure message of each pair
-    /// whose planner window failed (see `PlannerWindow.failed`).
-    private func trips(for pairs: [ODPair], boards: [String: [String: BoardEntry]], offsets: [Int]) async -> (groups: [[Trip]], failures: [Int: String]) {
+    /// whose planner window failed (see `PlannerWindow.failed`). Pairs in
+    /// `required` (all when nil) get more per-train lookups than the rest.
+    private func trips(
+        for pairs: [ODPair],
+        boards: [String: [String: BoardEntry]],
+        offsets: [Int],
+        required: Set<String>?
+    ) async -> (groups: [[Trip]], failures: [Int: String]) {
         let baseNow = clock()
+        let homeBoard = boards[UserConfig.homeId] ?? [:]
+        // Seeds reach as far as the clock lookups start, and at least an hour.
+        let horizon = TimeInterval(max(offsets.max() ?? 0, 60) * 60)
         let results = await withTaskGroup(of: (Int, [Trip], String?).self) { group -> [Int: ([Trip], String?)] in
             for (index, pair) in pairs.enumerated() {
+                let shown = required?.contains(pair.key) ?? true
+                let seeds = Self.plannerSeeds(
+                    for: pair,
+                    homeBoard: homeBoard,
+                    now: baseNow,
+                    horizon: horizon,
+                    limit: shown ? NJTQueries.seedsForShownDirection : NJTQueries.seedsForOtherDirection
+                )
                 group.addTask {
                     guard let from = Stations.station(pair.fromId), let to = Stations.station(pair.toId) else {
                         return (index, [], nil)
                     }
-                    let window = await plannerWindow(origin: from.plannerName, destination: to.plannerName, offsets: offsets)
+                    let window = await plannerWindow(origin: from.plannerName, destination: to.plannerName, offsets: offsets, seeds: seeds)
                     let trips = NJTParse.normalizeItineraries(
                         window.itineraries,
                         fromId: pair.fromId,
@@ -269,7 +351,7 @@ public struct NJTClient: Sendable {
         primary.failures.forEach(record)
         var boardIndexes = primary.indexes
 
-        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets)
+        let primaryTrips = await trips(for: pairs, boards: boardIndexes, offsets: plannerOffsets, required: required)
         /// Why each direction (by index into `pairs`) has no trustworthy answer.
         var unreliable: [Int: String] = primaryTrips.failures
         func throwIfARequiredDirectionFailed() throws {
@@ -297,7 +379,7 @@ public struct NJTClient: Sendable {
             }
             let extra = await boards(for: extraStations)
             for (id, index) in extra.indexes { boardIndexes[id] = index }
-            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets)
+            let retried = await trips(for: extraPairs, boards: boardIndexes, offsets: plannerOffsets, required: required)
             for (index, extraPair) in extraPairs.enumerated() {
                 guard let owner = pairs.indices.first(where: { Self.alternateKeys(for: pairs[$0]).contains(extraPair.key) && emptyKeys.contains(pairs[$0].key) }) else { continue }
                 if let failure = retried.failures[index] {
@@ -407,6 +489,10 @@ public struct PlannerWindow: Sendable {
     public var failedLookups: [Int] = []
     /// NJ Transit's reason for the first failure.
     public var reason: String?
+    /// How many per-train lookups were made (see `PlannerSeed`), and how many
+    /// of them failed. Those never fail the window.
+    public var seedLookups = 0
+    public var failedSeeds = 0
 
     public init(origin: String, destination: String, lookups: Int) {
         self.origin = origin
@@ -426,5 +512,56 @@ public struct PlannerWindow: Sendable {
     /// "Watchung Avenue Station to Hoboken Terminal planner: NJT public feed HTTP 500"
     public var failureMessage: String {
         "\(origin) to \(destination) planner: \(reason ?? "unavailable")"
+    }
+}
+
+/// A planner lookup pinned to one train at the home station (see
+/// `NJTClient.plannerSeeds`): leave at its departure, or arrive by its time.
+public struct PlannerSeed: Equatable, Hashable, Sendable {
+    public var at: Date
+    public var arriveBy: Bool
+
+    public init(at: Date, arriveBy: Bool) {
+        self.at = at
+        self.arriveBy = arriveBy
+    }
+}
+
+/// Answers to per-train planner lookups, each kept for `lifetime`. A seed
+/// sits at a train's own time, so the same lookups recur refresh after
+/// refresh while that train is on the board; reusing them keeps a refresh's
+/// load on NJ Transit near what the four clock lookups alone cost. Those move
+/// with the clock and are never cached. Only answers are kept, not failures.
+public final class PlannerCache: @unchecked Sendable {
+    public let lifetime: TimeInterval
+    private let lock = NSLock()
+    private var entries: [String: (storedAt: Date, itineraries: [JSON])] = [:]
+
+    public init(lifetime: TimeInterval = NJTQueries.seedCacheLifetime) {
+        self.lifetime = lifetime
+    }
+
+    /// The stored answer for `key`, unless it is older than `lifetime`.
+    public func itineraries(for key: String, now: Date) -> [JSON]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[key] else { return nil }
+        let age = now.timeIntervalSince(entry.storedAt)
+        return age >= 0 && age < lifetime ? entry.itineraries : nil
+    }
+
+    /// Store an answer, dropping any that have expired.
+    public func store(_ itineraries: [JSON], for key: String, now: Date) {
+        lock.lock()
+        defer { lock.unlock() }
+        entries = entries.filter { now.timeIntervalSince($0.value.storedAt) < lifetime }
+        entries[key] = (storedAt: now, itineraries: itineraries)
+    }
+
+    /// How many answers are stored, expired or not.
+    public var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries.count
     }
 }

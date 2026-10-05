@@ -59,3 +59,26 @@ func fixture(_ name: String, file: StaticString = #filePath, line: UInt = #line)
 func fixtureJSON(_ name: String, file: StaticString = #filePath, line: UInt = #line) -> JSON {
     (try? JSON.parse(fixture(name, file: file, line: line))) ?? .null
 }
+
+/// A clock a test can move between refreshes.
+final class MovableClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+
+    init(_ start: Date) {
+        value = start
+    }
+
+    var now: Date {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+        set {
+            lock.lock()
+            value = newValue
+            lock.unlock()
+        }
+    }
+}

@@ -63,12 +63,60 @@ final class NJTParseTests: XCTestCase {
         let index = NJTParse.buildBoardIndex(items)
         XCTAssertEqual(Set(index.keys), ["1074", "1078", "1082", "1086"])
 
-        XCTAssertEqual(index["1074"], BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 09:51:00 AM", status: nil))
-        XCTAssertEqual(index["1078"], BoardEntry(track: "1", note: "Delayed 6 min · DELAYED", departureRaw: "03-Aug-2026 10:13:00 AM", status: .delayed))
+        XCTAssertEqual(index["1074"], BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 09:51:00 AM", status: nil, destination: "Hoboken"))
+        XCTAssertEqual(index["1078"], BoardEntry(track: "1", note: "Delayed 6 min · DELAYED", departureRaw: "03-Aug-2026 10:13:00 AM", status: .delayed, destination: "Hoboken"))
         XCTAssertEqual(index["1082"]?.status, .cancelled)
         XCTAssertEqual(index["1082"]?.note, "Bus & rail · Cancelled")
         XCTAssertNil(index["1082"]?.track)
-        XCTAssertEqual(index["1086"], BoardEntry(track: nil, note: nil, departureRaw: "03-Aug-2026 11:13:00 AM", status: .onTime))
+        XCTAssertEqual(index["1086"], BoardEntry(track: nil, note: nil, departureRaw: "03-Aug-2026 11:13:00 AM", status: .onTime, destination: "Hoboken"))
+    }
+
+    func testTellsTrainsBoundForTheCityFromTrainsLeavingIt() {
+        XCTAssertTrue(NJTParse.isTowardCity("Hoboken"))
+        XCTAssertTrue(NJTParse.isTowardCity("New York -SEC"))
+        XCTAssertFalse(NJTParse.isTowardCity("MSU"))
+        XCTAssertFalse(NJTParse.isTowardCity("MSU -SEC"), "-SEC only means via Secaucus")
+        XCTAssertFalse(NJTParse.isTowardCity("Hackettstown"))
+        XCTAssertFalse(NJTParse.isTowardCity(nil))
+    }
+
+    /// One planner leg as NJ Transit sends it (missing fields come back null).
+    func leg(_ type: String, _ block: String?, _ on: String, _ onTime: String?, _ off: String, _ offTime: String?) -> JSON {
+        .object([
+            "routeType": .string(type),
+            "block": block.map(JSON.string) ?? .null,
+            "onStopDescription": .string(on),
+            "onStopTime": onTime.map(JSON.string) ?? .null,
+            "offStopDescription": .string(off),
+            "offStopTime": offTime.map(JSON.string) ?? .null,
+        ])
+    }
+
+    /// The shape of a live answer for Watchung Avenue to New York Penn Station
+    /// on a weekday morning: train 1000 to Hoboken, then PATH to 33rd St.
+    /// Read as rail alone it looked like a direct trip arriving at 7:42, when
+    /// the train reaches Hoboken; the all-rail way for the same train is the
+    /// one to show.
+    func testLeavesOutTripsThatRidePATHOrTheSubway() {
+        let itineraries: [JSON] = [
+            .object(["legs": .array([
+                leg("C", "1000", "WATCHUNG AVENUE", "7:08 AM", "HOBOKEN", "7:42 AM"),
+                leg("W", nil, "HOBOKEN", "7:42 AM", "HOBOKEN PATH STATION", nil),
+                leg("T", "114991", "HOBOKEN PATH STATION", "7:53 AM", "33RD ST PATH", "8:08 AM"),
+            ])]),
+            .object(["legs": .array([
+                leg("C", "1000", "WATCHUNG AVENUE", "7:08 AM", "NEWARK BROAD ST", "7:30 AM"),
+                leg("C", "6612", "NEWARK BROAD ST", "7:38 AM", "NEW YORK PENN STATION", "8:03 AM"),
+            ])]),
+        ]
+        XCTAssertTrue(NJTParse.usesOtherTransit(itineraries[0]["legs"]?.arrayValue))
+        XCTAssertFalse(NJTParse.usesOtherTransit(itineraries[1]["legs"]?.arrayValue))
+
+        let trips = NJTParse.normalizeItineraries(itineraries, fromId: "watchung", toId: "penn", boardIndex: [:], baseNow: base)
+        XCTAssertEqual(trips.count, 1)
+        XCTAssertEqual(trips.first?.trainId, "1000")
+        XCTAssertEqual(trips.first?.transferAt, ["Newark Broad"])
+        XCTAssertEqual(trips.first?.arrival, date("2026-08-03T12:03:00.000Z"), "8:03 AM at Penn, not 7:42 at Hoboken")
     }
 
     // MARK: Itineraries

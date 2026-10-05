@@ -198,6 +198,26 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(BoardEngine.trackedTrainIds(base: manyViews, pin: nil, rideCache: nil).count, BoardEngine.stopListTrains)
     }
 
+    // MARK: One way per train
+
+    func testListsTheBestWayToCatchEachTrainHomeAndKeepsAPinnedOne() {
+        let ways = [
+            trip("59", "hoboken", "watchung", at(evening, 14), duration: 69, transfers: ["Secaucus"], legs: ["59", "6283"]),
+            trip("657", "hoboken", "watchung", at(evening, 38), duration: 45, transfers: ["Newark Broad"], legs: ["657", "6283"]),
+            trip("1011", "hoboken", "watchung", at(evening, 33), duration: 36),
+        ]
+        let state = compute(payload(ways, generatedAt: evening), now: evening)
+        XCTAssertEqual(state.direction.map(\.trip.trainId), ["1011", "657"])
+        XCTAssertEqual(state.hero?.trip.trainId, "1011")
+        XCTAssertFalse(state.trackedTrainIds.contains("59"), "no stop list for a row that isn't shown")
+
+        let pin = Pin(dirKey: "hoboken|watchung", key: "hoboken|watchung|59")
+        let pinned = compute(payload(ways, generatedAt: evening), now: evening, pin: pin)
+        XCTAssertEqual(pinned.hero?.trip.trainId, "59")
+        XCTAssertTrue(pinned.isPinned)
+        XCTAssertFalse(pinned.riding)
+    }
+
     // MARK: No service
 
     func testNamesTheNearestStationWithServiceWhenHomeHasNone() {

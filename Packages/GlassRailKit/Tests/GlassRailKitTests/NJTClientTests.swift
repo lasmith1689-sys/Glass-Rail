@@ -176,7 +176,9 @@ final class NJTClientTests: XCTestCase {
         ])
         let calls = fake.calls
         XCTAssertEqual(calls.filter { $0.operation == "board" }.count, 3)
-        XCTAssertEqual(calls.filter { $0.operation == "planner" }.count, 16)
+        // Four clock lookups per direction, plus one per train on Watchung
+        // Avenue's board (four, all bound for Hoboken) for each way into the city.
+        XCTAssertEqual(calls.filter { $0.operation == "planner" }.count, 24)
         XCTAssertEqual(Set(calls.filter { $0.operation == "board" }.map { $0.variables["station"].jsString }),
                        ["Watchung Avenue", "Hoboken Terminal", "New York Penn Station"])
     }
@@ -315,6 +317,142 @@ final class NJTClientTests: XCTestCase {
             }
             XCTAssertTrue(message.hasPrefix("Bay Street Station to Hoboken Terminal planner: NJT public feed HTTP 503"), message)
         }
+    }
+
+    // MARK: Per-train lookups
+
+    /// Watchung Avenue's board at 9:45 AM: 1074 (9:51) and 1078 (10:13) into
+    /// the city, 6237 (10:09) out to MSU, 6233 gone five minutes ago, and 1090
+    /// (2:13 PM) past the clock lookups' reach.
+    var homeBoard: [String: BoardEntry] {
+        [
+            "1074": BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 09:51:00 AM", status: nil, destination: "Hoboken"),
+            "1078": BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 10:13:00 AM", status: nil, destination: "New York -SEC"),
+            "6237": BoardEntry(track: "1", note: nil, departureRaw: "03-Aug-2026 10:09:00 AM", status: nil, destination: "MSU"),
+            "6233": BoardEntry(track: "1", note: nil, departureRaw: "03-Aug-2026 09:40:00 AM", status: nil, destination: "MSU"),
+            "1090": BoardEntry(track: "2", note: nil, departureRaw: "03-Aug-2026 02:13:00 PM", status: nil, destination: "Hoboken"),
+        ]
+    }
+
+    /// Part of that board as NJ Transit sends it.
+    static let homeBoardReply = FakeNJT.ok("""
+    {"data":{"getTrainDepartureScreens":{"items":[
+      {"departureDate":"03-Aug-2026 09:51:00 AM","destination":"Hoboken","status":"","track":"2","trainID":"1074"},
+      {"departureDate":"03-Aug-2026 10:13:00 AM","destination":"New York -SEC","status":"","track":"2","trainID":"1078"},
+      {"departureDate":"03-Aug-2026 10:09:00 AM","destination":"MSU","status":"","track":"1","trainID":"6237"}
+    ]}}}
+    """)
+
+    func testSeedsOneLookupPerHomeTrainEachWay() {
+        let reach: TimeInterval = 225 * 60
+        let into = NJTClient.plannerSeeds(for: ODPair(fromId: "watchung", toId: "hoboken"), homeBoard: homeBoard, now: base, horizon: reach, limit: 8)
+        XCTAssertEqual(into, [
+            PlannerSeed(at: date("2026-08-03T13:51:00.000Z"), arriveBy: false),
+            PlannerSeed(at: date("2026-08-03T14:13:00.000Z"), arriveBy: false),
+        ])
+        let home = NJTClient.plannerSeeds(for: ODPair(fromId: "penn", toId: "watchung"), homeBoard: homeBoard, now: base, horizon: reach, limit: 8)
+        XCTAssertEqual(home, [PlannerSeed(at: date("2026-08-03T14:09:00.000Z"), arriveBy: true)])
+        let capped = NJTClient.plannerSeeds(for: ODPair(fromId: "watchung", toId: "hoboken"), homeBoard: homeBoard, now: base, horizon: reach, limit: 1)
+        XCTAssertEqual(capped.map(\.at), [date("2026-08-03T13:51:00.000Z")], "the soonest first")
+        XCTAssertEqual(NJTClient.plannerSeeds(for: ODPair(fromId: "baystreet", toId: "hoboken"), homeBoard: homeBoard, now: base, horizon: reach, limit: 8), [])
+    }
+
+    func testAsksLeaveAtFromHomeAndArriveByForTheRideHome() async throws {
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            return FakeNJT.planner(train: "1207", at: "10:21:00 AM", arrive: "11:00:00 AM")
+        }
+        _ = try await client(fake).fetchLivePayload()
+        let clockTimes: Set<String> = ["9:45 AM", "11:00 AM", "12:15 PM", "1:30 PM"]
+        let planner = fake.calls.filter { $0.operation == "planner" }
+        let seeded = planner.filter { !clockTimes.contains($0.variables["time"].jsString) }.map {
+            "\($0.variables["origin"].jsString)>\($0.variables["destination"].jsString) \($0.variables["timeOption"].jsString) \($0.variables["time"].jsString)"
+        }
+        XCTAssertEqual(Set(seeded), [
+            "Watchung Avenue Station>Hoboken Terminal D 9:51 AM",
+            "Watchung Avenue Station>Hoboken Terminal D 10:13 AM",
+            "Watchung Avenue Station>New York Penn Station D 9:51 AM",
+            "Watchung Avenue Station>New York Penn Station D 10:13 AM",
+            "Hoboken Terminal>Watchung Avenue Station A 10:09 AM",
+            "New York Penn Station>Watchung Avenue Station A 10:09 AM",
+        ])
+        XCTAssertEqual(seeded.count, 6)
+        // The clock lookups still leave from now and every 75 minutes after.
+        XCTAssertEqual(planner.count, 16 + 6)
+        XCTAssertTrue(planner.filter { clockTimes.contains($0.variables["time"].jsString) }.allSatisfy { $0.variables["timeOption"].jsString == "D" })
+    }
+
+    func testATrainBetweenTheClockLookupsComesFromItsOwnLookup() async throws {
+        // The clock lookups only ever see 1074; 1078 at 10:13 is found by the
+        // lookup pinned to it.
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            if variables["origin"].jsString == "Watchung Avenue Station", variables["time"].jsString == "10:13 AM" {
+                return FakeNJT.planner(train: "1078", at: "10:13:00 AM", arrive: "10:52:00 AM")
+            }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        let payload = try await client(fake).fetchLivePayload(required: ["watchung|hoboken"])
+        let into = payload.trips.filter { $0.fromId == "watchung" && $0.toId == "hoboken" }
+        XCTAssertEqual(into.compactMap(\.trainId), ["1074", "1078"])
+    }
+
+    func testAFailedTrainLookupOnlyCostsThatTrain() async throws {
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            if variables["time"].jsString == "10:13 AM" { return NJTHTTPResponse(status: 500, body: Data("{}".utf8)) }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        let payload = try await client(fake).fetchLivePayload()
+        XCTAssertEqual(payload.source.kind, .live)
+        XCTAssertNil(payload.unanswered)
+        XCTAssertNil(payload.carriedOver)
+        XCTAssertTrue(payload.trips.contains { $0.fromId == "watchung" && $0.toId == "hoboken" && $0.trainId == "1074" })
+
+        let seeds = NJTClient.plannerSeeds(for: ODPair(fromId: "watchung", toId: "hoboken"), homeBoard: homeBoard, now: base, horizon: 225 * 60, limit: 8)
+        let window = await client(fake).plannerWindow(origin: "Watchung Avenue Station", destination: "Hoboken Terminal", seeds: seeds)
+        XCTAssertEqual(window.seedLookups, 2)
+        XCTAssertEqual(window.failedSeeds, 1)
+        XCTAssertEqual(window.failedLookups, [])
+        XCTAssertFalse(window.failed)
+    }
+
+    func testTrainLookupsAreReusedForTenMinutesClockLookupsAreNot() async throws {
+        let clock = MovableClock(base)
+        let fake = FakeNJT { operation, variables in
+            if operation == "board" {
+                return variables["station"].jsString == "Watchung Avenue" ? Self.homeBoardReply : FakeNJT.emptyBoard
+            }
+            return FakeNJT.planner(train: "1074", at: "09:51:00 AM", arrive: "10:30:00 AM")
+        }
+        let client = NJTClient(transport: fake, clock: { clock.now })
+        let into = [ODPair(fromId: "watchung", toId: "hoboken")]
+        _ = try await client.fetchLivePayload(pairs: into)
+        clock.now = base.addingTimeInterval(60)
+        _ = try await client.fetchLivePayload(pairs: into)
+        clock.now = base.addingTimeInterval(11 * 60)
+        _ = try await client.fetchLivePayload(pairs: into)
+
+        let planner = fake.calls.filter { $0.operation == "planner" }
+        XCTAssertEqual(planner.filter { $0.variables["time"].jsString == "10:13 AM" }.count, 2, "asked, reused a minute later, asked again after ten minutes")
+        XCTAssertEqual(planner.filter { $0.variables["time"].jsString == "9:51 AM" }.count, 1, "reused, then that train had left")
+        XCTAssertEqual(planner.count, 3 * 4 + 3, "four clock lookups every refresh")
+    }
+
+    func testThePlannerCacheForgetsAnswersAfterItsLifetime() {
+        let cache = PlannerCache(lifetime: 600)
+        cache.store([.string("x")], for: "k", now: base)
+        XCTAssertEqual(cache.itineraries(for: "k", now: base.addingTimeInterval(599)), [.string("x")])
+        XCTAssertNil(cache.itineraries(for: "k", now: base.addingTimeInterval(600)))
+        XCTAssertNil(cache.itineraries(for: "other", now: base))
+        cache.store([], for: "k2", now: base.addingTimeInterval(700))
+        XCTAssertEqual(cache.count, 1, "expired answers go when a new one is stored")
     }
 
     // MARK: Stop lists

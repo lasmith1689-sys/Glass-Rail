@@ -61,8 +61,10 @@ let started = Date()
 print("NJ Transit probe at \(ISOTime.string(from: started)) (\(Format.time(started)) Eastern)")
 
 // 1. One departure board, raw.
+var homeBoardItems: [JSON] = []
 do {
     let items = try await client.fetchDepartureBoard("Watchung Avenue")
+    homeBoardItems = items
     if let last = recorder.replies.last {
         save("board-watchung.json", last.response.body)
         notice("board Watchung Avenue: HTTP \(last.response.status), \(items.count) items", compact(last.response.body))
@@ -101,6 +103,27 @@ do {
     firstTrain = payload.trips.first { $0.fromId == "watchung" }?.trainId ?? payload.trips.first?.trainId
     save("payload.json", (try? GlassRailJSON.encoder().encode(payload)) ?? Data())
     notice("live payload", lines.joined(separator: "\n"))
+
+    // 3b. Every train on Watchung Avenue's board in the next 3 hours should
+    // be on the board this way: as the first train into the city, or as the
+    // last train home.
+    let index = NJTParse.buildBoardIndex(homeBoardItems)
+    var coverage: [String] = []
+    for pair in Alternates.defaultPairs() {
+        let leaving = pair.fromId == UserConfig.homeId
+        let due = index.filter { entry in
+            guard NJTParse.isTowardCity(entry.value.destination) == leaving,
+                  let time = entry.value.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: t0) }) else { return false }
+            return time >= t0 && time <= t0.addingTimeInterval(3 * 3600)
+        }
+        let used = Set(payload.trips.filter { $0.fromId == pair.fromId && $0.toId == pair.toId }.compactMap { trip -> String? in
+            let legs = trip.legTrainIds ?? [trip.trainId].compactMap { $0 }
+            return leaving ? legs.first : legs.last
+        })
+        let missing = due.keys.filter { !used.contains($0) }.sorted()
+        coverage.append("\(pair.key): \(due.count - missing.count) of \(due.count) board trains" + (missing.isEmpty ? "" : ", missing \(missing.joined(separator: ", "))"))
+    }
+    notice("board trains covered (next 3 hours)", coverage.joined(separator: "\n"))
 } catch {
     notice("live payload FAILED", error.localizedDescription)
 }

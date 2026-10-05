@@ -79,9 +79,24 @@ public enum NJTQueries {
     """
 
     /// Planner lookups start now and 75, 150 and 225 minutes out, so one
-    /// refresh covers the next few hours (the planner returns a handful of
-    /// itineraries per request).
+    /// refresh reaches the next few hours. Each answers with only three
+    /// itineraries, ranked by arrival, so on their own they skip trains (a
+    /// live check on a weekday found 8 of 28 ways home from Hoboken after
+    /// 4:45 PM); one more lookup per train on the home station's board fills
+    /// those in (see `NJTClient.plannerSeeds`).
     public static let plannerOffsetsMinutes = [0, 75, 150, 225]
+
+    /// Per-train lookups (see `NJTClient.plannerSeeds`) for the direction on
+    /// screen: its next trains at the home station, soonest first.
+    public static let seedsForShownDirection = 8
+    /// Per-train lookups for each other direction, so a flip or a change of
+    /// terminal shows the next few trains straight away.
+    public static let seedsForOtherDirection = 4
+    /// How long a per-train lookup's answer is reused. Each sits at one
+    /// train's own time, so the same lookups recur refresh after refresh and
+    /// a timetable doesn't change in between; live status comes from the
+    /// departure boards.
+    public static let seedCacheLifetime: TimeInterval = 10 * 60
 
     /// Upper bound on trains per stop-list batch, so one refresh can't fan out.
     public static let maxStopListTrains = 8

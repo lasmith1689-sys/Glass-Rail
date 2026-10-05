@@ -1,18 +1,22 @@
 import Foundation
 
 /// One train on a station's departure board, reduced to what the board adds
-/// to a planner itinerary (track, anomaly text, status).
+/// to a planner itinerary (track, anomaly text, status) and where it is going.
 public struct BoardEntry: Equatable, Sendable {
     public var track: String?
     public var note: String?
     public var departureRaw: String?
     public var status: TripStatus?
+    /// The board's destination ("Hoboken", "New York -SEC", "MSU"), which
+    /// says which way the train runs through the station.
+    public var destination: String?
 
-    public init(track: String?, note: String?, departureRaw: String?, status: TripStatus?) {
+    public init(track: String?, note: String?, departureRaw: String?, status: TripStatus?, destination: String? = nil) {
         self.track = track
         self.note = note
         self.departureRaw = departureRaw
         self.status = status
+        self.destination = destination
     }
 }
 
@@ -161,10 +165,19 @@ public enum NJTParse {
                 // same length (used when ranking duplicates) without one.
                 note: noteParts.isEmpty ? nil : noteParts.joined(separator: " · "),
                 departureRaw: cleanOrNil(item["departureDate"]),
-                status: parseBoardStatus(item["status"].jsString, item["inlineMessage"].jsString)
+                status: parseBoardStatus(item["status"].jsString, item["inlineMessage"].jsString),
+                destination: cleanOrNil(item["destination"])
             )
         }
         return map
+    }
+
+    /// True for a board train bound for Hoboken or New York ("Hoboken",
+    /// "New York -SEC"): at the home station it runs toward the city, where
+    /// any other destination ("MSU", "Dover", "Hackettstown") runs out of it.
+    /// A "-SEC" suffix only means via Secaucus, so "MSU -SEC" is not one.
+    public static func isTowardCity(_ destination: String?) -> Bool {
+        RX.test("hoboken|new york|penn|newark|secaucus", destination ?? "", ignoreCase: true)
     }
 
     // MARK: Planner itineraries
@@ -193,6 +206,19 @@ public enum NJTParse {
             result.replaceCharacters(in: match.range, with: ns.substring(with: match.range).uppercased())
         }
         return result as String
+    }
+
+    /// True when an itinerary rides something besides NJ Transit rail: PATH
+    /// or the subway (route type "T"), a bus or light rail. Walks ("W") are
+    /// fine. Its rail legs stop short of the destination (at Hoboken, for PATH
+    /// to 33rd St), so they would read as a direct trip arriving when the
+    /// train reaches Hoboken; the planner offers an all-rail way for the same
+    /// train, which is the one to show.
+    public static func usesOtherTransit(_ legs: [JSON]?) -> Bool {
+        (legs ?? []).contains { leg in
+            let type = clean(leg["routeType"])
+            return !type.isEmpty && type != "C" && type != "W"
+        }
     }
 
     /// Rail legs with a train number and both times; walks and buses drop out.
@@ -231,7 +257,8 @@ public enum NJTParse {
 
     /// Turn raw planner itineraries into trips for one direction, one per
     /// train and departure, preferring fewer transfers, then the earlier
-    /// arrival, then the shorter note.
+    /// arrival, then the shorter note. Itineraries that ride PATH, the subway
+    /// or a bus are left out (see `usesOtherTransit`).
     public static func normalizeItineraries(
         _ itineraries: [JSON],
         fromId: String,
@@ -242,6 +269,7 @@ public enum NJTParse {
         var order: [String] = []
         var deduped: [String: Trip] = [:]
         for itinerary in itineraries {
+            if usesOtherTransit(itinerary["legs"]?.arrayValue) { continue }
             let legs = railLegs(itinerary["legs"]?.arrayValue)
             guard let first = legs.first, let last = legs.last else { continue }
             let trainId = cleanOrNil(first["block"])

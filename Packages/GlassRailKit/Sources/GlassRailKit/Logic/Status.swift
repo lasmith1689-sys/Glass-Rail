@@ -169,6 +169,30 @@ public enum Status {
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
     }
 
+    /// Drops a connection nobody should take: another trip this way leaves no
+    /// earlier and arrives no later, and beats it on one of the two. NJ
+    /// Transit offers many ways to catch the same train home (from Hoboken via
+    /// Secaucus at 6:14, 6:17 and 6:20, all reaching Watchung at 7:23, when
+    /// the 6:38 via Newark Broad does too); only the 6:38 earns a row. Direct
+    /// trains always stay, so every train that runs this way is listed, and
+    /// so does the trip with `keeping`'s key (the pinned one). A cancelled
+    /// trip never counts as the better option. Times are the expected
+    /// (delay-shifted) ones; a trip without an arrival is never compared.
+    public static func hidingDominatedConnections(_ views: [TripView], keeping: String? = nil) -> [TripView] {
+        let rivals = views.filter { !$0.cancelled && $0.expectedArrival != nil }
+        return views.filter { view in
+            guard view.trip.transferCount > 0, let arrival = view.expectedArrival else { return true }
+            if let keeping, view.key == keeping { return true }
+            return !rivals.contains { other in
+                guard let otherArrival = other.expectedArrival else { return false }
+                let leavesNoEarlier = other.expectedDeparture >= view.expectedDeparture
+                let arrivesNoLater = otherArrival <= arrival
+                let better = other.expectedDeparture > view.expectedDeparture || otherArrival < arrival
+                return leavesNoEarlier && arrivesNoLater && better
+            }
+        }
+    }
+
     /// The trip to show for a pinned ride. NJ Transit's planner only returns
     /// future departures, so the train the rider is sitting on disappears
     /// from the payload the moment it leaves. Prefer fresh feed data, fall back
