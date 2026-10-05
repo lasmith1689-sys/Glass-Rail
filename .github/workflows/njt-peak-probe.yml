@@ -8,13 +8,13 @@ permissions:
 jobs:
   probe:
     runs-on: macos-26
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - name: Probe NJ Transit
-        run: python3 probe9.py out
+        run: python3 probe10.py out
       - name: Publish results to ci-njt-peak-results
         if: always()
         env:
