@@ -279,6 +279,10 @@ capture 07-sample 5 'SAMPLE && SCHEDULED && !DELAYED && !ON TIME' -GlassRailDemo
 capture 08-later-sheet 6 'Arrives [0-9]' -GlassRailDemo delayed -GlassRailSheet later
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 'Choose a look' -GlassRailSheet settings
+# NJ Transit's travel alerts: a red link in the header that takes no room, so "Later this way"
+# stays on screen; and the sheet it opens, with the alerts in full.
+capture 10a-alerts 6 'SERVICE ALERTS && LATER THIS WAY && DELAYED' -GlassRailDemo delayed -GlassRailAlerts YES
+capture 10b-alerts-sheet 6 'Midtown && honored && Portal' -GlassRailDemo delayed -GlassRailAlerts YES -GlassRailSheet alerts
 capture 11-widgets 6 'LATER THIS WAY && LIVE ACTIVITY && DROP-OFF' -GlassRailDemo delayed -GlassRailWidgetGallery YES
 capture 12-theme-midnight 5 'DELAYED' -GlassRailDemo delayed -GlassRailTheme midnight
 theme_check

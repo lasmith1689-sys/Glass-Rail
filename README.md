@@ -34,8 +34,9 @@ is, and when to say a train has departed.
   track changes or an "On time" chip.
 - **No service**: when your station has no trains (the Montclair Branch runs none north of Bay Street
   on weekends), it says so and lists the next trains from Bay Street.
-- Refreshes every 60 seconds, on returning to the app, with pull to refresh, and with the Refresh
-  button. Nine looks in Settings, all on the same board layout:
+- Refreshes every 60 seconds (10 seconds after a failed refresh, once), on returning to the app,
+  with pull to refresh, and with the Refresh button. Nine looks in Settings, all on the same board
+  layout:
   - From v4: Glass (the default), Midnight, Aurora, Sunset, Liquid.
   - From the September 2026 design samples: Platform (night platform, warm lights, a straight track
     running to a headlight), Ember (amber glow on graphite), Navy (deep blue with gold light) and
@@ -146,9 +147,11 @@ sent 6222 to Penn Station, so it showed almost nothing. Now the boards win:
   reads "Ends at Hoboken today, not Penn Station NY" ("Ends at Hoboken" in the list).
 - **Home from the city**, a train on both the terminal's board and Watchung Avenue's is a direct ride
   home even when the timetable doesn't have it: that morning 6231 started from Hoboken, track 6.
-- **NJ Transit's travel alerts** for the Montclair-Boonton and Montclair lines sit above the route bar,
-  the first in full and the rest on a tap ("Midtown Direct trains are being diverted to Hoboken...").
-  If they fail to load, the last ones stay. The widget doesn't fetch them.
+- **NJ Transit's travel alerts** for the Montclair-Boonton and Montclair lines turn the header's
+  "Rail planner" label into a red "2 service alerts" link, which opens them in full ("Midtown
+  Direct trains are being diverted to Hoboken..."). It takes no room on the board, so the hero and
+  "Later this way" stay put. If the alerts fail to load, the last ones stay. The widget doesn't
+  fetch them.
 - **The planner can be down while the boards are up.** If Watchung Avenue's board lists trains for
   the city, the trip toward the city still shows them, with tracks and countdowns, under `LIVE`.
 - **Boards add trains, never days.** A board's times carry no date, so its trains count only from 90
@@ -244,9 +247,10 @@ launch arguments (used by CI's smoke test):
 | `-GlassRailDemo track` | A track change after 4 seconds |
 | `-GlassRailDemo departed` | The hero departs after 12 seconds |
 | `-GlassRailDemo stale` | Old live data |
-| `-GlassRailDemo sample` | Sample data (no alerts) |
+| `-GlassRailDemo sample` | Sample data (never late, never on time, no track change) |
 | `-GlassRailDemo riding` | A pinned train mid-ride, which then drops off the feed |
-| `-GlassRailSheet later\|stops\|settings` | Opens that sheet |
+| `-GlassRailSheet later\|stops\|settings\|alerts` | Opens that sheet |
+| `-GlassRailAlerts YES` | Gives a QA scenario two NJ Transit travel alerts |
 | `-GlassRailWidgetGallery YES` | The widget layouts and the Live Activity's Lock Screen layout, rendered in the app |
 | `-GlassRailTheme midnight` | A theme, without saving it |
 

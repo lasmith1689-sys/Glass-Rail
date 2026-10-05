@@ -12,9 +12,16 @@ enum LaunchOptions {
         DemoScenario.parse(defaults.string(forKey: "GlassRailDemo"))
     }
 
-    /// Open this sheet on launch: `later`, `stops` or `settings`.
+    /// Open this sheet on launch: `later`, `stops`, `settings` or `alerts`.
     static var sheet: String? {
         defaults.string(forKey: "GlassRailSheet")
+    }
+
+    /// Give a QA scenario two NJ Transit travel alerts, so the smoke test can
+    /// show the header's alert link and the alerts sheet whatever NJ Transit
+    /// is reporting that day.
+    static var alerts: Bool {
+        defaults.bool(forKey: "GlassRailAlerts")
     }
 
     /// Show the widget layouts inside the app, for screenshots.

@@ -11,8 +11,11 @@ import GlassRailKit
 // - a train the board counts down to ("in 7 Min") must be shown within 3
 //   minutes of that time;
 // - no train may be shown direct to a terminal its board says it doesn't reach.
-// Trains home (out of the city) missing from the app are reported too. A
-// failed refresh or any problem fails the step; the CI step is informational.
+// And home: every train on Watchung Avenue's board coming out of the city in
+// the next 2 hours that is still on Hoboken's or Penn Station's board (so it
+// hasn't left there) must be a way home from that terminal, on screen in PM
+// mode, and shown within 3 minutes of that board's countdown. A failed
+// refresh or any problem fails the step; the CI step is informational.
 
 /// Counts requests, so each round can say what it cost.
 final class CountingTransport: NJTTransport, @unchecked Sendable {
@@ -125,13 +128,45 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
             }
         }
 
-        // Trains coming out of the city, which take riders home.
-        for (train, entry) in board where !NJTParse.isTowardCity(entry.destination) {
-            guard let atHome = entry.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: truthAt) }),
-                  atHome <= truthAt.addingTimeInterval(2 * 3600) else { continue }
-            let home = payload.trips.filter { $0.toId == UserConfig.homeId && ($0.legTrainIds?.last ?? $0.trainId) == train }
-            if home.isEmpty {
-                notes.append("round \(round): \(train) reaching Watchung Avenue at \(Format.time(atHome)) is in no trip home")
+        // The ride home, refereed by the terminals' own boards.
+        for terminal in ["hoboken", "penn"] {
+            guard let name = Stations.station(terminal)?.name,
+                  let items = try? await referee.fetchDepartureBoard(name) else {
+                notes.append("round \(round): the referee's \(terminal) board didn't load")
+                continue
+            }
+            let terminalBoard = NJTParse.buildBoardIndex(items)
+            let checkedAt = Date()
+            let state = BoardEngine.compute(BoardInputs(
+                payload: payload, runs: runs, now: checkedAt, destinationId: terminal,
+                modeOverride: ModeOverride(mode: .pm, at: checkedAt)
+            ))
+            for (train, atHome) in board where !NJTParse.isTowardCity(atHome.destination) {
+                guard let there = terminalBoard[train],
+                      let leaves = there.departureRaw.flatMap({ NJTParse.rawToDate($0, baseNow: checkedAt) }),
+                      leaves <= checkedAt.addingTimeInterval(2 * 3600) else { continue }
+                let rides = payload.trips.filter {
+                    $0.fromId == terminal && $0.toId == UserConfig.homeId && ($0.legTrainIds?.last ?? $0.trainId) == train
+                }
+                if rides.isEmpty {
+                    problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is on its board and Watchung Avenue's but in no way home")
+                    continue
+                }
+                guard let view = state.direction.first(where: { $0.trip.trainId == train && $0.trip.transferCount == 0 }) else {
+                    problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is in the app's trips but not on screen as a direct ride")
+                    continue
+                }
+                if let countdown = there.countdownMinutes {
+                    let real = checkedAt.addingTimeInterval(Double(countdown) * 60)
+                    if abs(view.expectedDeparture.timeIntervalSince(real)) > 3 * 60 {
+                        problems.append("round \(round) home from \(terminal): \(train) shows \(Format.time(view.expectedDeparture)), the board says \(Format.time(real)) (in \(countdown) min)")
+                    }
+                }
+            }
+            if let hero = state.hero {
+                line += " home from \(terminal): \(hero.trip.trainId ?? "?") \(Format.time(hero.expectedDeparture)) \(Format.tripType(hero.trip))\(hero.delayed ? " late" : "");"
+            } else {
+                line += " home from \(terminal): no train;"
             }
         }
         log.append(line)

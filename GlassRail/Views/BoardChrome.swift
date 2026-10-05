@@ -6,18 +6,25 @@ struct HeaderBar: View {
     let feedMode: FeedMode?
     let generatedAt: Date?
     let now: Date
+    /// NJ Transit's travel alerts in force: the kicker becomes a red link to them.
+    var alertCount = 0
+    var onShowAlerts: () -> Void = {}
     @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Rail planner").kicker()
+                if alertCount > 0 {
+                    ServiceAlertKicker(count: alertCount, action: onShowAlerts)
+                } else {
+                    Text("Rail planner").kicker()
+                        .accessibilityHidden(true)
+                }
                 Text("Glass Rail")
                     .grFont(23.2, .semibold, style: .title2, maxScale: 1.3)
                     .tracking(-0.6)
+                    .accessibilityAddTraits(.isHeader)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 6) {
                 if let feedMode {
@@ -226,55 +233,35 @@ struct FooterBar: View {
     }
 }
 
-/// NJ Transit's travel alerts for the lines through Watchung Avenue, the red
-/// box in its own app: the first in full, the rest on a tap.
-struct ServiceAlertBanner: View {
-    let alerts: [String]
-    @State private var expanded = false
+/// NJ Transit's travel alerts for the lines through Watchung Avenue, in the
+/// header's kicker: a red "2 service alerts" that opens them in full. It takes
+/// no room of its own, so the hero and "Later this way" stay where they are.
+struct ServiceAlertKicker: View {
+    let count: Int
+    let action: () -> Void
     @Environment(\.theme) private var theme
 
-    private var shown: [String] { expanded ? alerts : Array(alerts.prefix(1)) }
+    /// NJ Transit red, deepened on light themes so the small caps stay readable.
+    private var red: Color { theme.scheme == .light ? Color(hex: 0xB91C1C) : Accent.cancel }
 
     var body: some View {
-        Button {
-            withAnimation(.snappy) { expanded.toggle() }
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
+        Button(action: action) {
+            HStack(spacing: 5) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Accent.cancel)
-                    .padding(.top, 1)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(alerts.count == 1 ? "Service alert" : "Service alerts · \(alerts.count)").kicker()
-                    ForEach(Array(shown.enumerated()), id: \.offset) { _, text in
-                        Text(text)
-                            .grFont(12.5, .medium, style: .footnote)
-                            .foregroundStyle(theme.ink.opacity(0.92))
-                            .lineLimit(expanded ? nil : 4)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if alerts.count > 1 {
-                        Text(expanded ? "Show less" : "Show all \(alerts.count)")
-                            .grFont(11.5, .semibold, style: .caption)
-                            .foregroundStyle(theme.ink.opacity(0.75))
-                    }
-                }
-                Spacer(minLength: 0)
+                    .font(.system(size: 10, weight: .bold))
+                Text(count == 1 ? "Service alert" : "\(count) service alerts")
+                    .grFont(10.5, .bold, style: .caption2, maxScale: 1.4)
+                    .tracking(10.5 * 0.18)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(red)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .glassPanel(radius: 18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Accent.cancel.opacity(0.55), lineWidth: 1)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(alerts.count > 1 ? (expanded ? "Shows only the first alert" : "Shows every alert") : "")
+        .accessibilityLabel(count == 1 ? "NJ Transit service alert" : "\(count) NJ Transit service alerts")
+        .accessibilityHint("Shows the alerts in full")
     }
 }

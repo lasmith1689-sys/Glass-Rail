@@ -231,6 +231,57 @@ struct StopsSheet: View {
     }
 }
 
+// MARK: Service alerts
+
+/// NJ Transit's travel alerts for the lines through Watchung Avenue, in full,
+/// in NJ Transit's order.
+struct AlertsSheet: View {
+    @Environment(BoardModel.self) private var model
+    @Environment(\.theme) private var theme
+
+    private var red: Color { theme.scheme == .light ? Color(hex: 0xB91C1C) : Accent.cancel }
+
+    var body: some View {
+        let alerts = model.state?.serviceAlerts ?? []
+        VStack(spacing: 0) {
+            SheetHeader(
+                kicker: "NJ Transit",
+                title: alerts.count == 1 ? "Service alert" : "Service alerts",
+                count: alerts.count > 1 ? alerts.count : nil
+            )
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(alerts.enumerated()), id: \.offset) { _, text in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(red)
+                                .padding(.top, 2)
+                                .accessibilityHidden(true)
+                            Text(text)
+                                .grFont(14, style: .subheadline)
+                                .foregroundStyle(theme.ink.opacity(0.92))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(14)
+                        .insetPanel(radius: 16)
+                    }
+                    Text(alerts.isEmpty
+                         ? "No alerts for the Montclair-Boonton or Montclair lines right now."
+                         : "For the Montclair-Boonton and Montclair lines, from NJ Transit.")
+                        .grFont(11.5, style: .caption)
+                        .foregroundStyle(theme.ink.opacity(0.7))
+                        .padding(.horizontal, 4)
+                }
+                .padding(16)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+}
+
 struct StopRow: View {
     let stop: TrainStop
     let isNext: Bool

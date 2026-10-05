@@ -15,14 +15,17 @@ struct BoardScreen: View {
             ThemeBackdrop(theme: theme, lively: true)
                 .ignoresSafeArea()
             VStack(spacing: 0) {
-                HeaderBar(feedMode: model.state?.feedMode, generatedAt: model.dataUpdatedAt, now: model.now)
+                HeaderBar(
+                    feedMode: model.state?.feedMode,
+                    generatedAt: model.dataUpdatedAt,
+                    now: model.now,
+                    alertCount: model.state?.serviceAlerts.count ?? 0,
+                    onShowAlerts: { model.activeSheet = .alerts }
+                )
                 GeometryReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
                             if let state = model.state {
-                                if !state.serviceAlerts.isEmpty {
-                                    ServiceAlertBanner(alerts: state.serviceAlerts)
-                                }
                                 RouteBar(
                                     state: state,
                                     destinationId: model.destinationId,
@@ -86,6 +89,9 @@ struct BoardScreen: View {
                         .presentationDetents([.fraction(0.72), .large])
                 case .settings:
                     SettingsSheet()
+                        .presentationDetents([.fraction(0.62), .large])
+                case .alerts:
+                    AlertsSheet()
                         .presentationDetents([.fraction(0.62), .large])
                 }
             }

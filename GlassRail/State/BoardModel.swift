@@ -4,7 +4,7 @@ import Observation
 import WidgetKit
 
 enum ActiveSheet: String, Identifiable {
-    case later, stops, settings
+    case later, stops, settings, alerts
     var id: String { rawValue }
 }
 
@@ -54,10 +54,19 @@ final class BoardModel {
 
     /// How often the board polls NJ Transit, like v4.
     static let refreshInterval: Duration = .seconds(60)
+    /// After a failed refresh the next try comes this soon, once: a busy feed
+    /// on a disrupted morning shouldn't leave the board on old or sample data
+    /// for a whole minute.
+    static let retryAfterFailure: Duration = .seconds(10)
     /// How often the clock-derived parts (countdowns, direction, departures) update.
     static let tickInterval: Duration = .seconds(10)
     /// A saved payload older than this is not worth showing at launch.
     static let warmStartLimit: TimeInterval = 30 * 60
+    /// Two travel alerts in NJ Transit's own words (5 October 2026), for QA.
+    static let qaAlerts = [
+        "Due to an Amtrak track condition in one of the Hudson River Tunnels, NJ TRANSIT rail service is subject to up to 60-minute delays into and out of Penn Station New York. Midtown Direct trains are being diverted to Hoboken. NJ TRANSIT rail tickets and passes are being cross honored by NJ TRANSIT and private carrier buses and PATH at Newark Penn Station, Hoboken and 33rd Street, New York.",
+        "Temporary Rail Service Changes October 11, 2026 \u{2013} November 14, 2026* Portal North Bridge Enters Final Phase of Construction as Work Begins to Put the Second of Two Tracks into Service",
+    ]
 
     init() {
         let store = SharedStore(appGroup: SharedStore.appGroup())
@@ -96,7 +105,8 @@ final class BoardModel {
             loops.append(Task { [weak self] in
                 while !Task.isCancelled {
                     await self?.loadLive()
-                    try? await Task.sleep(for: Self.refreshInterval)
+                    let retrySoon = self?.fetchFailures == 1
+                    try? await Task.sleep(for: retrySoon ? Self.retryAfterFailure : Self.refreshInterval)
                 }
             })
         }
@@ -385,7 +395,10 @@ final class BoardModel {
 
     private func applyDemo(_ scenario: DemoScenario, step: Int) {
         let at = Date()
-        let demoPayload = Demo.payload(scenario, step: step, now: at)
+        var demoPayload = Demo.payload(scenario, step: step, now: at)
+        if LaunchOptions.alerts {
+            demoPayload.alerts = Self.qaAlerts
+        }
         trackState.ingest(demoPayload, now: at)
         payload = demoPayload
         // Merge like the live path does: live mode keeps fetching the pinned
