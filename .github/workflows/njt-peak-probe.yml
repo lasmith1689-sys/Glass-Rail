@@ -14,7 +14,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Probe NJ Transit
-        run: python3 probe13.py out
+        run: python3 probe14.py out
       - name: Publish results to ci-njt-peak-results
         if: always()
         env:
