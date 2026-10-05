@@ -92,6 +92,13 @@ capture() {
   run_limited 30 xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
   launched=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" 2>&1)
   sleep "$wait"
+  if ! alive; then
+    # A slow runner can leave a launch unfinished (simctl itself timing out): launch once more,
+    # and say so, before calling it a failure. A crash at launch fails again.
+    echo "::notice title=Smoke test::$name: not running ${wait}s after launch (simctl: $(printf '%s' "$launched" | tr '\n' ' ' | cut -c1-200)); launching once more"
+    launched=$(run_limited 60 xcrun simctl launch "$UDID" "$BUNDLE" "$@" 2>&1)
+    sleep "$wait"
+  fi
   local attempt passed=0 text="$OUT/ocr/$name.txt"
   for attempt in 1 2 3 4 5; do
     if ! alive; then

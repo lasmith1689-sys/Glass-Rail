@@ -26,10 +26,12 @@ is, and when to say a train has departed.
 - **Transfers** with the connecting train and its live time at the transfer station.
 - **"Later this way"**: the next departures at a glance, and a sheet with every later train (true
   times, arrival, per-leg lateness, badges, track). Tap one to pin it; **"Pinned · show next"**
-  releases it. A pinned train survives its own departure and stays featured until about 3 minutes
-  after arrival, and is remembered for 3 hours across relaunches. Then the pin lets go (at the
-  latest 3 hours after its train left, even if the app never closed), so tomorrow's train of the
-  same number is never pinned; switching to the other direction mid-ride keeps the ride.
+  releases it. The pin button beside the main card's time follows the featured train the same way
+  (filled while following). A pinned train survives its own departure and stays featured until
+  about 3 minutes after arrival, and is remembered for 3 hours across relaunches. Then the pin lets
+  go (at the latest 3 hours after its train left, even if the app never closed), so tomorrow's
+  train of the same number is never pinned; switching to the other direction mid-ride keeps the
+  ride.
 - **"Train N has departed"** for 12 seconds when the featured train leaves.
 - **Freshness**: `LIVE` only for genuinely live data; `STALE` ("Data may be outdated.") after 3.5
   minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays,
@@ -141,9 +143,12 @@ sent 6222 to Penn Station, so it showed almost nothing. Now the boards win:
 
 - **A train on its station's board hasn't left.** The countdown runs to the real departure, so the
   hero shows 6216 leaving at 9:18, `DELAYED 13m`, with its arrival pushed back to match until the
-  train's stop list has its own times. A train still listed after its time with no countdown stays
-  up, marked late, even when its stop list's time has passed (6233 was still boarding at Hoboken
-  at 10:29 while its stop list said 10:28); only the stop list saying it left takes it down.
+  train's stop list has its own times. The time shown is always the live one: the stop list's,
+  even a minute before the timetable or the board (trains do leave early; 1074, due at 9:51, left
+  Watchung Avenue at 9:50). A train its board still lists stays up, though, until the board lets go
+  of it or its stop list says it left (6233 was still boarding at Hoboken at 10:29 while its stop
+  list said 10:28), without its time being changed; one listed after its time with no countdown
+  keeps its timetable time, marked late.
 - **Every train on Watchung Avenue's board bound for the city is listed**, whatever the planner found.
   One the board sends to your terminal is a direct trip. One it sends elsewhere keeps only the
   connections that still work (a train sent to Hoboken can't make a change at Secaucus), or else
@@ -208,7 +213,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 292 tests: v4's 138 vitest cases, one XCTest each, plus 154 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
+| `Packages/GlassRailKit/Tests` | 293 tests: v4's 138 vitest cases, one XCTest each, plus 155 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups and their cache, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats), the Live Activity's timing rules, widget timelines and storage. |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |

@@ -132,14 +132,16 @@ public enum BoardEngine {
                 textDelayMinutes: view.delayMinutes
             )
         )
-        // The origin's departure board is the authority on a train it still
-        // lists: a live stop time can't make it leave sooner, unless the stop
-        // list says it has left. On 5 October 6233's stop list put Hoboken at
-        // 10:28 while Hoboken's board still listed it for 10:29, and it
-        // vanished while it was boarding.
-        if let board = Status.boardDeparture(view.trip), board.time > timed.expectedDeparture,
-           stops?.first(where: { Journey.stopMatchesStation($0.name, origin.ref) })?.departed != true {
-            timed.expectedDeparture = board.time
+        // The time shown is the live one, even when it is before the board's
+        // (trains do leave early: on 5 October 1074, due 9:51, left Watchung
+        // Avenue at 9:50). But while the origin's board still lists the train
+        // and its stop list doesn't say it has left, it may still be
+        // boarding, so it stays on screen until the board's time: 6233's stop
+        // list put Hoboken at 10:28 while Hoboken's board still listed it for
+        // 10:29, and it vanished while it was boarding.
+        if let board = Status.boardDeparture(view.trip) {
+            let left = stops?.first(where: { Journey.stopMatchesStation($0.name, origin.ref) })?.departed == true
+            timed.holdUntil = left || board.time <= timed.expectedDeparture ? nil : board.time
         }
         return timed
     }

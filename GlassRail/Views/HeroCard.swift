@@ -11,6 +11,7 @@ struct HeroCard: View {
     let departedFading: Bool
     let onShowNext: () -> Void
     let onOpenStops: () -> Void
+    let onFollow: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -31,7 +32,8 @@ struct HeroCard: View {
                     state: state,
                     now: now,
                     onShowNext: onShowNext,
-                    onOpenStops: onOpenStops
+                    onOpenStops: onOpenStops,
+                    onFollow: onFollow
                 )
             } else {
                 NoServiceView(state: state, now: now)
@@ -50,6 +52,7 @@ private struct HeroDetails: View {
     let now: Date
     let onShowNext: () -> Void
     let onOpenStops: () -> Void
+    let onFollow: () -> Void
     @Environment(\.theme) private var theme
 
     private var trip: Trip { view.trip }
@@ -75,7 +78,21 @@ private struct HeroDetails: View {
                     .foregroundStyle(theme.ink.opacity(0.85))
                     .padding(.top, 6)
             }
-            timeBlock.padding(.top, 8)
+            HStack(alignment: .center, spacing: 12) {
+                timeBlock
+                Spacer(minLength: 0)
+                // Follow this train: pins it, Live Activity and all, as a tap on
+                // a later train does. Filled while following; a tap lets go.
+                if state.alerts || state.isPinned {
+                    GlassIconButton(
+                        systemImage: state.isPinned ? "pin.fill" : "pin",
+                        label: state.isPinned ? "Stop following this train" : "Follow this train",
+                        size: 40,
+                        action: state.isPinned ? onShowNext : onFollow
+                    )
+                }
+            }
+            .padding(.top, 8)
             trainLine.padding(.top, 4)
             if let timing = view.timing {
                 HStack(alignment: .top, spacing: 6) {

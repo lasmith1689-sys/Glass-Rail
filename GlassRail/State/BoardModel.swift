@@ -379,6 +379,13 @@ final class BoardModel {
         recompute()
     }
 
+    /// The follow button on the main card: pin the featured train itself, Live
+    /// Activity and all (v4 could only pin a later train).
+    func followHero() {
+        guard let hero = state?.hero else { return }
+        pinTrip(hero)
+    }
+
     /// "Pinned · show next".
     func unpin() {
         releasePin()

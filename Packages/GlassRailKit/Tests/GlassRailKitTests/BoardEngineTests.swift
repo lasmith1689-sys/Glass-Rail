@@ -296,7 +296,8 @@ final class BoardEngineTests: XCTestCase {
         let feed = payload([boarding], generatedAt: evening)
         let state = compute(feed, now: at(evening, 0.5), destination: "hoboken", runs: runs)
         XCTAssertEqual(state.hero?.trip.trainId, "6233")
-        XCTAssertEqual(state.hero?.expectedDeparture, evening)
+        XCTAssertEqual(state.hero?.expectedDeparture, at(evening, -1), "the live time, a minute early")
+        XCTAssertEqual(state.hero?.holdUntil, evening)
         // Once its stop list says it has left Hoboken, it's gone.
         var left = runs
         left["6233"]?[0].departed = true
@@ -324,6 +325,15 @@ final class BoardEngineTests: XCTestCase {
         var listed = boards
         listed["penn"]?["6237"] = BoardEntry(track: "7", note: nil, departureRaw: "5:29 PM", status: nil, destination: "MSU")
         XCTAssertNil(BoardTruth.reconcile([fromPenn], pair: pair, boards: listed, fetchedAt: evening).first?.status)
+    }
+
+    func testTheFeaturedTrainCanBeFollowed() {
+        // The follow button pins the hero itself.
+        let pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
+        let state = compute(payload(weekday), pin: pin)
+        XCTAssertEqual(state.hero?.trip.trainId, "1074")
+        XCTAssertTrue(state.isPinned)
+        XCTAssertEqual(state.later.map(\.trip.trainId), ["1078", "1082"])
     }
 
     func testLaterListsEveryTrainThisWay() {

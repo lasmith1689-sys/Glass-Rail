@@ -31,6 +31,11 @@ public struct TripView: Equatable, Sendable {
     public var trackChange: TrackChange?
     /// True pickup/drop-off times, attached by `withTiming` when stop data exists.
     public var timing: TripTiming?
+    /// The origin's departure board still lists the train past
+    /// `expectedDeparture`, so it may still be boarding: it stays on screen
+    /// until this time without its time being changed (the time shown is
+    /// always the live one; trains do leave early).
+    public var holdUntil: Date?
 
     public init(
         trip: Trip,
@@ -41,7 +46,8 @@ public struct TripView: Equatable, Sendable {
         expectedArrival: Date?,
         cancelled: Bool,
         trackChange: TrackChange?,
-        timing: TripTiming? = nil
+        timing: TripTiming? = nil,
+        holdUntil: Date? = nil
     ) {
         self.trip = trip
         self.key = key
@@ -52,6 +58,7 @@ public struct TripView: Equatable, Sendable {
         self.cancelled = cancelled
         self.trackChange = trackChange
         self.timing = timing
+        self.holdUntil = holdUntil
     }
 }
 
@@ -136,13 +143,27 @@ public enum Status {
         var delayMinutes = delayed ? parseDelayMinutes(trip.statusNote) : nil
         var expectedDeparture = shift(trip.departure, minutes: delayMinutes) ?? trip.departure
         var lateBy = delayMinutes
-        if alerts, let board = boardDeparture(trip), board.time > expectedDeparture {
-            expectedDeparture = board.time
-            let late = jsRound(expectedDeparture.timeIntervalSince(trip.departure) / 60)
-            if late >= lateAfterMinutes {
-                delayed = true
-                lateBy = late
-                if board.exact { delayMinutes = late }
+        var holdUntil: Date?
+        if alerts, let board = boardDeparture(trip) {
+            if board.exact {
+                // A countdown runs to the real departure.
+                if board.time > expectedDeparture {
+                    expectedDeparture = board.time
+                    let late = jsRound(expectedDeparture.timeIntervalSince(trip.departure) / 60)
+                    if late >= lateAfterMinutes {
+                        delayed = true
+                        lateBy = late
+                        delayMinutes = late
+                    }
+                }
+            } else if let listedAt = trip.listedAt {
+                // Still listed past its time with no countdown: late by an
+                // unknown amount. It keeps its timetable time rather than a
+                // made-up one, and stays on screen while the board lists it.
+                holdUntil = board.time
+                if jsRound(listedAt.timeIntervalSince(trip.departure) / 60) >= lateAfterMinutes {
+                    delayed = true
+                }
             }
         }
         return TripView(
@@ -153,7 +174,8 @@ public enum Status {
             expectedDeparture: expectedDeparture,
             expectedArrival: shift(trip.arrival, minutes: lateBy),
             cancelled: alerts && trip.status == .cancelled,
-            trackChange: (alerts && key != nil) ? changes[key!] : nil
+            trackChange: (alerts && key != nil) ? changes[key!] : nil,
+            holdUntil: holdUntil
         )
     }
 
@@ -201,7 +223,7 @@ public enum Status {
         return trips
             .filter { $0.fromId == fromId && $0.toId == toId }
             .map { timing(deriveTripView($0, changes: changes, alerts: alerts)) }
-            .filter { $0.expectedDeparture >= cutoff }
+            .filter { max($0.expectedDeparture, $0.holdUntil ?? $0.expectedDeparture) >= cutoff }
             .stableSorted { $0.expectedDeparture < $1.expectedDeparture }
     }
 

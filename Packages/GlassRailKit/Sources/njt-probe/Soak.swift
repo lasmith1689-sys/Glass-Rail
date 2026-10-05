@@ -70,6 +70,15 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
         return stop?.departed == true || trips.allSatisfy { $0.listedAt == nil }
     }
 
+    /// The time shown is within 3 minutes of the board's countdown or of the
+    /// train's live stop time at the station (the app shows the live time,
+    /// which can be a minute or two before the board's: trains leave early).
+    func supported(_ shown: Date, board: Date, train: String, at station: Station) -> Bool {
+        if abs(shown.timeIntervalSince(board)) <= 3 * 60 { return true }
+        guard let live = runs[train]?.first(where: { Journey.stopMatchesStation($0.name, station.ref) })?.time else { return false }
+        return abs(shown.timeIntervalSince(live)) <= 3 * 60
+    }
+
     for round in 1...rounds {
         if round > 1 { try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000)) }
         let started = Date()
@@ -132,7 +141,7 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                 }
                 if let countdown = entry.countdownMinutes {
                     let real = truthAt.addingTimeInterval(Double(countdown) * 60)
-                    if abs(view.expectedDeparture.timeIntervalSince(real)) > 3 * 60 {
+                    if !supported(view.expectedDeparture, board: real, train: train, at: Stations.watchung) {
                         problems.append("round \(round) \(destination): \(train) shows \(Format.time(view.expectedDeparture)), the board says \(Format.time(real)) (in \(countdown) min)")
                     }
                 }
@@ -180,9 +189,9 @@ func runSoak(rounds: Int, interval: TimeInterval) async -> Bool {
                     problems.append("round \(round) home from \(terminal): \(train) \(Format.time(leaves)) is in the app's trips but not on screen as a direct ride")
                     continue
                 }
-                if let countdown = there.countdownMinutes {
+                if let countdown = there.countdownMinutes, let station = Stations.station(terminal) {
                     let real = checkedAt.addingTimeInterval(Double(countdown) * 60)
-                    if abs(view.expectedDeparture.timeIntervalSince(real)) > 3 * 60 {
+                    if !supported(view.expectedDeparture, board: real, train: train, at: station) {
                         problems.append("round \(round) home from \(terminal): \(train) shows \(Format.time(view.expectedDeparture)), the board says \(Format.time(real)) (in \(countdown) min)")
                     }
                 }

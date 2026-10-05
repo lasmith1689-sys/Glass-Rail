@@ -106,9 +106,12 @@ final class DisruptionTests: XCTestCase {
         var trip = makeTrip(fromId: "watchung", toId: "hoboken", trainId: "6216", departure: et("9:05"), arrival: et("9:43"))
         trip.listedAt = et("9:10")
         let view = Status.deriveTripView(trip, changes: [:], alerts: true)
-        XCTAssertEqual(view.expectedDeparture, et("9:11"))
+        XCTAssertEqual(view.expectedDeparture, et("9:05"), "no made-up time")
+        XCTAssertEqual(view.holdUntil, et("9:11"), "on screen while the board lists it")
         XCTAssertTrue(view.delayed)
         XCTAssertNil(view.delayMinutes, "late by an unknown amount")
+        let shown = Status.selectTripViews([trip], fromId: "watchung", toId: "hoboken", now: et("9:11").addingTimeInterval(30), alerts: true, changes: [:])
+        XCTAssertEqual(shown.map(\.trip.trainId), ["6216"])
         // Sample data never shows a train as late.
         XCTAssertFalse(Status.deriveTripView(trip, changes: [:], alerts: false).delayed)
     }

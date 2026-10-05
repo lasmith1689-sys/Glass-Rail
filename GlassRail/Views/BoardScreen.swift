@@ -39,7 +39,8 @@ struct BoardScreen: View {
                                     departedLabel: model.visibleDepartedLabel,
                                     departedFading: model.departedFading,
                                     onShowNext: model.unpin,
-                                    onOpenStops: { model.activeSheet = .stops }
+                                    onOpenStops: { model.activeSheet = .stops },
+                                    onFollow: model.followHero
                                 )
                                 Spacer(minLength: 0)
                                 LaterTeaser(later: state.later) { model.activeSheet = .later }
