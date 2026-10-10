@@ -314,6 +314,10 @@ capture 07-sample 5 'SAMPLE && SCHEDULED && !DELAYED && !ON TIME' -GlassRailDemo
 capture 08-later-sheet 6 'Arrives [0-9]' -GlassRailDemo delayed -GlassRailSheet later
 # On 1074 without having pinned it: "On a train that's already left?" lists it, to follow.
 capture 08b-earlier 6 'Left in the last hour && Train 1074 && [0-9]+m ago' -GlassRailDemo boarded -GlassRailSheet earlier
+# An evening at New York Penn before the board posts: the checker's call on
+# the hero's track with a small, light percentage, and on a later train's.
+capture 08c-penn-call 6 'Tk 13 && 98%' -GlassRailDemo pennCall
+capture 08d-penn-call-later 6 'Tk 7 && 31%' -GlassRailDemo pennCall -GlassRailSheet later
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Choose a look' -GlassRailSheet settings
 # Any NJ Transit rail station can be home, Watchung Avenue first as the default.

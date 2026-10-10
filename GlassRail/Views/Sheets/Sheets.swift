@@ -295,9 +295,22 @@ struct LaterRow: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(trip.track.map { "Tk \($0)" } ?? "--")
-                    .grFont(12.5, .semibold, style: .footnote, maxScale: 1.4, digits: true)
-                    .foregroundStyle(theme.ink.opacity(0.85))
+                if trip.track == nil, let call = view.trackCall {
+                    // NJ Transit hasn't posted it: the checker's call, with
+                    // how likely it is, small and light underneath.
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("Tk \(call.track)")
+                            .grFont(12.5, .semibold, style: .footnote, maxScale: 1.4, digits: true)
+                            .foregroundStyle(theme.ink.opacity(0.72))
+                        Text(call.percentText)
+                            .grFont(9.8, .medium, style: .caption2, maxScale: 1.4, digits: true)
+                            .foregroundStyle(theme.ink.opacity(0.48))
+                    }
+                } else {
+                    Text(trip.track.map { "Tk \($0)" } ?? "--")
+                        .grFont(12.5, .semibold, style: .footnote, maxScale: 1.4, digits: true)
+                        .foregroundStyle(theme.ink.opacity(0.85))
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -334,7 +347,11 @@ struct LaterRow: View {
         if let arrival = view.expectedArrival { text += ", arrives \(Format.time(arrival))" }
         if view.delayed, let minutes = view.delayMinutes { text += ", delayed \(minutes) minutes" }
         if view.cancelled { text += ", cancelled" }
-        if let track = trip.track { text += ", track \(track)" }
+        if let track = trip.track {
+            text += ", track \(track)"
+        } else if let call = view.trackCall {
+            text += ", track \(call.track) predicted, \(call.percentText) likely"
+        }
         return text
     }
 }

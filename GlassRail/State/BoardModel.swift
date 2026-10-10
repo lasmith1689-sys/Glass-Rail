@@ -40,6 +40,7 @@ final class BoardModel {
 
     let demo: DemoScenario?
     private let client = NJTClient()
+    private let pennClient = PennTracksClient()
     private let store: SharedStore
     private let rides = RideActivityController()
     @ObservationIgnored private var trackState = TrackState()
@@ -59,6 +60,11 @@ final class BoardModel {
     /// left, plus any asked for: NJ Transit stops listing a train once it
     /// leaves, and there may be no signal on board. Feeds `recentRides`.
     @ObservationIgnored private var recentTrips: [Trip] = []
+    /// The track checker's calls on New York Penn departures, fetched while
+    /// the board shows trains leaving Penn.
+    @ObservationIgnored private var pennTracks: PennTracks?
+    @ObservationIgnored private var fetchingPennTracks = false
+    @ObservationIgnored private var lastPennTracksFetch = Date.distantPast
 
     /// How often the board polls NJ Transit, like v4.
     static let refreshInterval: Duration = .seconds(60)
@@ -270,6 +276,27 @@ final class BoardModel {
         }
     }
 
+    /// While the board shows trains leaving New York Penn, the checker's calls
+    /// are fetched once a minute (its own pace), and at once when the board
+    /// turns to Penn.
+    private func schedulePennTracksIfNeeded() {
+        guard demo == nil, !fetchingPennTracks, state?.from.id == "penn",
+              Date().timeIntervalSince(lastPennTracksFetch) >= 55 else { return }
+        Task { await loadPennTracks() }
+    }
+
+    private func loadPennTracks() async {
+        guard demo == nil, !fetchingPennTracks else { return }
+        fetchingPennTracks = true
+        lastPennTracksFetch = Date()
+        defer { fetchingPennTracks = false }
+        // A miss changes nothing: the board just waits for NJ Transit's own
+        // track, and a call older than `PennTracks.freshFor` stops showing.
+        guard let fresh = try? await pennClient.fetch() else { return }
+        pennTracks = fresh
+        recompute()
+    }
+
     private func scheduleRunsIfNeeded() {
         guard demo == nil, !fetchingRuns, let ids = state?.trackedTrainIds, !ids.isEmpty else { return }
         if ids != lastRunIds || Date().timeIntervalSince(lastRunsFetch) >= 60 {
@@ -316,7 +343,8 @@ final class BoardModel {
             rideCache: rideCache,
             trackChanges: trackState.changes,
             fetchFailures: fetchFailures,
-            recentTrips: recentTrips
+            recentTrips: recentTrips,
+            pennTracks: pennTracks
         )
         var next = BoardEngine.compute(inputs)
         // v4 kept hold of the pinned trip during render; so do we, for as long
@@ -342,6 +370,7 @@ final class BoardModel {
         let switched = next.dirKey != state?.dirKey
         if next != state { state = next }
         scheduleRunsIfNeeded()
+        schedulePennTracksIfNeeded()
         if switched { catchUpIfShowingCarriedData() }
         // The ride's times are as old as its direction's trips.
         rides.sync(pin: pin, state: state, updatedAt: next.dataUpdatedAt, now: now)
@@ -495,6 +524,11 @@ final class BoardModel {
         if scenario == .riding {
             pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
         }
+        if scenario == .pennCall {
+            // An evening at Penn, whatever the hour of the test.
+            destinationId = "penn"
+            modeOverride = ModeOverride(mode: .pm, at: Date())
+        }
         applyDemo(scenario, step: 0)
         if let delay = scenario.secondStepDelay {
             loops.append(Task { [weak self] in
@@ -512,10 +546,14 @@ final class BoardModel {
         }
         trackState.ingest(demoPayload, now: at)
         payload = demoPayload
+        pennTracks = Demo.pennTracks(scenario, now: at)
         // Merge like the live path does: live mode keeps fetching the pinned
         // train's stop list after the planner drops it, so the riding
-        // scenario keeps its stops too. (v4's demo replaced them.)
-        runs.merge(Demo.runs(for: demoPayload, now: at)) { _, new in new }
+        // scenario keeps its stops too. (v4's demo replaced them.) The Penn
+        // scenario has none: the made-up runs start out past Lincoln Park.
+        if scenario != .pennCall {
+            runs.merge(Demo.runs(for: demoPayload, now: at)) { _, new in new }
+        }
         now = at
         recompute()
     }

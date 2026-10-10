@@ -14,6 +14,10 @@ public enum DemoScenario: String, CaseIterable, Sendable {
     /// On 1074, which left 12 minutes ago, without having pinned it: the
     /// Later sheet's "On a train that's already left?" offers it.
     case boarded
+    /// An evening at New York Penn before the board posts any track: the
+    /// checker calls 6263's from the signalling system (Tk 13, 98%) and
+    /// 6273's from history (Tk 7, 31%), and has nothing yet for 6283.
+    case pennCall
 
     public static func parse(_ value: String?) -> DemoScenario? {
         guard let value else { return nil }
@@ -27,7 +31,7 @@ public enum DemoScenario: String, CaseIterable, Sendable {
         case .track: return 4
         case .riding: return 6
         case .departed: return 12
-        case .delayed, .stale, .sample, .boarded: return nil
+        case .delayed, .stale, .sample, .boarded, .pennCall: return nil
         }
     }
 }
@@ -111,6 +115,8 @@ public enum Demo {
             // 1078, and 1074 (left 12 minutes ago, arrives in 27) is a ride
             // the rider can still follow.
             trips = baseTrips(now: now, hero: HeroPatch(track: "2"), heroDepMins: -12)
+        case .pennCall:
+            trips = pennTrips(now: now)
         }
 
         return Payload(
@@ -118,6 +124,29 @@ public enum Demo {
             source: PayloadSource(kind: kind, detail: "Demo scenario: \(scenario.rawValue) (QA preview, not real service data)."),
             trips: trips
         )
+    }
+
+    /// The pennCall scenario's trains home from New York Penn, none of them
+    /// posted yet.
+    static func pennTrips(now: Date) -> [Trip] {
+        [
+            trip("penn", "watchung", 18, 38, "6263", now: now),
+            trip("penn", "watchung", 39, 39, "6273", now: now),
+            trip("penn", "watchung", 69, 39, "6283", now: now),
+        ]
+    }
+
+    /// The track checker's calls for a scenario: only pennCall has any.
+    public static func pennTracks(_ scenario: DemoScenario, now: Date) -> PennTracks? {
+        guard scenario == .pennCall else { return nil }
+        let trips = pennTrips(now: now)
+        let calls: [String: TrackCall] = [
+            "6263": TrackCall(track: "13", probability: 0.98, source: .signal),
+            "6273": TrackCall(track: "7", probability: 0.31, source: .history),
+        ]
+        return PennTracks(lastPoll: now, departures: trips.map {
+            PennTracks.Departure(trainId: $0.trainId ?? "", scheduled: $0.departure, call: calls[$0.trainId ?? ""])
+        })
     }
 
     static let inboundTail = [

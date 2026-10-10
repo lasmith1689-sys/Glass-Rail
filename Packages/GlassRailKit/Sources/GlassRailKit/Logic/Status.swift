@@ -36,6 +36,9 @@ public struct TripView: Equatable, Sendable {
     /// until this time without its time being changed (the time shown is
     /// always the live one; trains do leave early).
     public var holdUntil: Date?
+    /// Leaving New York Penn with no posted track yet: the track checker's
+    /// call on it, with how likely it is (see `PennTracks`).
+    public var trackCall: TrackCall?
 
     public init(
         trip: Trip,
@@ -47,7 +50,8 @@ public struct TripView: Equatable, Sendable {
         cancelled: Bool,
         trackChange: TrackChange?,
         timing: TripTiming? = nil,
-        holdUntil: Date? = nil
+        holdUntil: Date? = nil,
+        trackCall: TrackCall? = nil
     ) {
         self.trip = trip
         self.key = key
@@ -59,6 +63,7 @@ public struct TripView: Equatable, Sendable {
         self.trackChange = trackChange
         self.timing = timing
         self.holdUntil = holdUntil
+        self.trackCall = trackCall
     }
 }
 

@@ -35,6 +35,9 @@ public struct BoardInputs: Sendable {
     /// listing once they leave: where `BoardState.recentRides` finds a
     /// train the rider boarded without pinning.
     public var recentTrips: [Trip]
+    /// The track checker's calls on New York Penn departures (`PennTracks`),
+    /// for a board whose trains leave Penn.
+    public var pennTracks: PennTracks?
 
     public init(
         payload: Payload,
@@ -46,7 +49,8 @@ public struct BoardInputs: Sendable {
         rideCache: RideCache? = nil,
         trackChanges: [String: TrackChange] = [:],
         fetchFailures: Int = 0,
-        recentTrips: [Trip] = []
+        recentTrips: [Trip] = [],
+        pennTracks: PennTracks? = nil
     ) {
         self.payload = payload
         self.runs = runs
@@ -58,6 +62,7 @@ public struct BoardInputs: Sendable {
         self.trackChanges = trackChanges
         self.fetchFailures = fetchFailures
         self.recentTrips = recentTrips
+        self.pennTracks = pennTracks
     }
 }
 
@@ -260,7 +265,13 @@ public enum BoardEngine {
                 timing: { markingBrokenConnection(applyTiming($0, runs: runs, origin: from, dest: to), runs: runs) }
             ),
             keeping: activePinKey
-        )
+        ).map { (view: TripView) -> TripView in
+            // Trains leaving New York Penn carry the checker's call on their
+            // track until the board posts one.
+            var view = view
+            view.trackCall = input.pennTracks?.call(for: view.trip, now: now)
+            return view
+        }
         let tracked = trackedTrainIds(base: base, pin: input.pin, rideCache: input.rideCache)
         let direction = base
 

@@ -129,7 +129,12 @@ private struct HeroDetails: View {
             HStack(spacing: 8) {
                 MetaChip(label: "Service", value: trip.trainId.map { "#\($0)" } ?? "--")
                 MetaChip(label: "Type", value: trip.terminus == nil ? Format.transferLabel(trip.transferCount) : "Ends early")
-                MetaChip(label: "Track", value: trip.track.map { "Tk \($0)" } ?? "Pending", highlight: view.trackChange != nil)
+                MetaChip(
+                    label: "Track",
+                    value: trip.track.map { "Tk \($0)" } ?? view.trackCall.map { "Tk \($0.track)" } ?? "Pending",
+                    note: trip.track == nil ? view.trackCall?.percentText : nil,
+                    highlight: view.trackChange != nil
+                )
             }
             .padding(.top, 10)
         }
@@ -266,23 +271,42 @@ struct LegCell: View {
 struct MetaChip: View {
     let label: String
     let value: String
+    /// A small, light aside after the value: how likely a track NJ Transit
+    /// hasn't posted yet is ("98%"). The value is then a call, not a fact,
+    /// and reads a shade lighter.
+    var note: String?
     var highlight = false
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).kicker(9.6)
-            Text(value)
-                .grFont(13.1, .semibold, style: .footnote, maxScale: 1.4, digits: true)
-                .tracking(-0.3)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .contentTransition(.numericText())
-                .animation(.snappy, value: value)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .grFont(13.1, .semibold, style: .footnote, maxScale: 1.4, digits: true)
+                    .tracking(-0.3)
+                    .foregroundStyle(theme.ink.opacity(note == nil ? 1 : 0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: value)
+                if let note {
+                    Text(note)
+                        .grFont(10.4, .medium, style: .caption2, maxScale: 1.4, digits: true)
+                        .foregroundStyle(theme.ink.opacity(0.5))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .transition(.opacity)
+                }
+            }
+            .animation(.snappy, value: note)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
         .insetPanel(radius: 12, highlight: highlight ? Accent.track.opacity(0.55) : nil)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(note.map { "\(value), predicted, \($0) likely" } ?? value)
     }
 }
 
