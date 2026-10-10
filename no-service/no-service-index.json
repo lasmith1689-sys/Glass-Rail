@@ -1,0 +1,132 @@
+[
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Hoboken Terminal",
+    "name" : "saturday-watchung-hoboken",
+    "noTripsReply" : true,
+    "origin" : "Watchung Avenue Station",
+    "outcome" : "answered, 0 itineraries (NJ Transit's no-trips reply)",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Watchung Avenue Station",
+    "name" : "saturday-hoboken-watchung",
+    "noTripsReply" : true,
+    "origin" : "Hoboken Terminal",
+    "outcome" : "answered, 0 itineraries (NJ Transit's no-trips reply)",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "New York Penn Station",
+    "name" : "saturday-watchung-penn",
+    "noTripsReply" : true,
+    "origin" : "Watchung Avenue Station",
+    "outcome" : "answered, 0 itineraries (NJ Transit's no-trips reply)",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Watchung Avenue Station",
+    "name" : "saturday-penn-watchung",
+    "noTripsReply" : true,
+    "origin" : "New York Penn Station",
+    "outcome" : "answered, 0 itineraries (NJ Transit's no-trips reply)",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Hoboken Terminal",
+    "name" : "saturday-baystreet-hoboken",
+    "noTripsReply" : false,
+    "origin" : "Bay Street Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Bay Street Station",
+    "name" : "saturday-hoboken-baystreet",
+    "noTripsReply" : false,
+    "origin" : "Hoboken Terminal",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "New York Penn Station",
+    "name" : "saturday-baystreet-penn",
+    "noTripsReply" : false,
+    "origin" : "Bay Street Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/17\/2026",
+    "destination" : "Bay Street Station",
+    "name" : "saturday-penn-baystreet",
+    "noTripsReply" : false,
+    "origin" : "New York Penn Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "10:00 AM"
+  },
+  {
+    "date" : "10\/12\/2026",
+    "destination" : "Hoboken Terminal",
+    "name" : "3am-watchung-hoboken",
+    "noTripsReply" : false,
+    "origin" : "Watchung Avenue Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "3:00 AM"
+  },
+  {
+    "date" : "10\/12\/2026",
+    "destination" : "Watchung Avenue Station",
+    "name" : "3am-hoboken-watchung",
+    "noTripsReply" : false,
+    "origin" : "Hoboken Terminal",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "3:00 AM"
+  },
+  {
+    "date" : "10\/12\/2026",
+    "destination" : "New York Penn Station",
+    "name" : "3am-watchung-penn",
+    "noTripsReply" : false,
+    "origin" : "Watchung Avenue Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "3:00 AM"
+  },
+  {
+    "date" : "10\/12\/2026",
+    "destination" : "Watchung Avenue Station",
+    "name" : "3am-penn-watchung",
+    "noTripsReply" : false,
+    "origin" : "New York Penn Station",
+    "outcome" : "answered, 3 itineraries",
+    "status" : 200,
+    "time" : "3:00 AM"
+  },
+  {
+    "date" : "10\/12\/2026",
+    "destination" : "Hoboken Terminal",
+    "name" : "3am-nowhere-hoboken",
+    "noTripsReply" : false,
+    "origin" : "Nowhere Station",
+    "outcome" : "threw graphQL(\"Cannot destructure property \\'latLong\\' of \\'(intermediate value)\\' as it is undefined.\") (Cannot destructure property 'latLong' of '(intermediate value)' as it is undefined.)",
+    "status" : 200,
+    "time" : "3:00 AM"
+  }
+]
