@@ -10,16 +10,21 @@ struct RouteLineRow: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
+        // The names take the width they need, as in v4's flex row, and the
+        // line the rest; an even three-way split cut "Penn Station NY" short.
+        // A name too long even then shrinks a little before it truncates.
         HStack(alignment: .center, spacing: 8) {
-            Text(from)
+            Text(from).layoutPriority(1)
             RouteLine(progress: progress, showsDot: showsDot)
-            Text(to)
+                .frame(minWidth: 36)
+            Text(to).layoutPriority(1)
         }
         .grFont(10.5, .semibold, style: .caption2, maxScale: 1.3)
         .tracking(1.7)
         .textCase(.uppercase)
         .foregroundStyle(theme.ink.opacity(0.85))
         .lineLimit(1)
+        .minimumScaleFactor(0.8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(from) to \(to)")
         .accessibilityValue(showsDot ? "\(Int((progress * 100).rounded())) percent of the way" : "")
