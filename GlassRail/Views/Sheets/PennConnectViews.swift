@@ -97,6 +97,8 @@ struct PennConnectPage: View {
     @State private var password = ""
     @State private var working = false
     @State private var outcome: PennConnect.Outcome?
+    /// What's still missing, said when Connect is tapped too soon.
+    @State private var missing: PennConnect.Missing?
     @FocusState private var field: Field?
     @Environment(\.theme) private var theme
 
@@ -108,12 +110,6 @@ struct PennConnectPage: View {
         _code = code
         self.onBack = onBack
         self.onConnected = onConnected
-    }
-
-    private var ready: Bool {
-        PennConnect.normalized(code: code).count == 6
-            && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !password.isEmpty
     }
 
     var body: some View {
@@ -137,7 +133,52 @@ struct PennConnectPage: View {
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
+            // Connect, and anything it has to say, stays in reach above the keyboard.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if outcome != .connected {
+                    connectBar
+                }
+            }
         }
+        .onChange(of: code) { _, _ in missing = nil }
+        .onChange(of: username) { _, _ in missing = nil }
+        .onChange(of: password) { _, _ in missing = nil }
+    }
+
+    /// The Connect button, never greyed out: tapped too soon, it says what's
+    /// missing and goes to that field.
+    private var connectBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let message = missing?.message ?? refusalMessage {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Accent.delay)
+                        .accessibilityHidden(true)
+                    Text(message)
+                        .grFont(12.5, .medium, style: .footnote)
+                        .foregroundStyle(theme.ink.opacity(0.88))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 4)
+                .accessibilityElement(children: .combine)
+                .transition(.opacity)
+            }
+            ConnectButton(title: working ? "Checking with NJ Transit" : "Connect", working: working) { connect() }
+                .disabled(working)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .animation(.snappy, value: missing)
+        .animation(.snappy, value: outcome)
+    }
+
+    private var refusalMessage: String? {
+        if case .refused(let refusal) = outcome { return refusal.message }
+        return nil
     }
 
     private var form: some View {
@@ -170,27 +211,6 @@ struct PennConnectPage: View {
                 .onSubmit { connect() }
                 .accessibilityLabel("NJ Transit RailData password")
                 .connectField()
-            ConnectButton(title: working ? "Checking with NJ Transit" : "Connect", working: working) { connect() }
-                .disabled(!ready || working)
-                .opacity(ready || working ? 1 : 0.5)
-                .padding(.horizontal, 12)
-                .padding(.top, 18)
-            if case .refused(let refusal) = outcome {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Accent.delay)
-                        .accessibilityHidden(true)
-                    Text(refusal.message)
-                        .grFont(12.5, .medium, style: .footnote)
-                        .foregroundStyle(theme.ink.opacity(0.88))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .accessibilityElement(children: .combine)
-                .transition(.opacity)
-            }
             Text("The setup code is the one-time code you were sent. The username and password are your NJ Transit developer (RailData) login.")
                 .grFont(11.5, style: .caption)
                 .foregroundStyle(theme.ink.opacity(0.7))
@@ -198,7 +218,6 @@ struct PennConnectPage: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
         }
-        .animation(.snappy, value: outcome)
     }
 
     private var connected: some View {
@@ -233,7 +252,17 @@ struct PennConnectPage: View {
     }
 
     private func connect() {
-        guard ready, !working else { return }
+        guard !working else { return }
+        if let gap = PennConnect.missing(code: code, username: username, password: password) {
+            missing = gap
+            switch gap {
+            case .code: field = .code
+            case .username: field = .username
+            case .password: field = .password
+            }
+            return
+        }
+        missing = nil
         field = nil
         working = true
         outcome = nil

@@ -36,6 +36,27 @@ public struct PennConnect: Sendable {
         }
     }
 
+    /// What still has to be filled in before Connect can go, first one first.
+    public enum Missing: Equatable, Sendable {
+        case code, username, password
+
+        /// What the Connect page says when it's tapped too soon.
+        public var message: String {
+            switch self {
+            case .code: return "The setup code is 6 letters and numbers."
+            case .username: return "Enter your RailData username."
+            case .password: return "Enter your RailData password."
+            }
+        }
+    }
+
+    public static func missing(code: String, username: String, password: String) -> Missing? {
+        if normalized(code: code).count != 6 { return .code }
+        if username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .username }
+        if password.isEmpty { return .password }
+        return nil
+    }
+
     /// Sends one request: the reply's status and body. Tests stand in for
     /// the network.
     public var send: @Sendable (URLRequest) async throws -> (Int, Data)

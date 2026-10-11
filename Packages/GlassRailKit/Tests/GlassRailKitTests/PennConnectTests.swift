@@ -57,6 +57,17 @@ final class PennConnectTests: XCTestCase {
         XCTAssertEqual(connected, .connected)
     }
 
+    func testSaysWhatIsStillMissingFirstThingFirst() {
+        XCTAssertEqual(PennConnect.missing(code: "", username: "", password: ""), .code)
+        XCTAssertEqual(PennConnect.missing(code: "K7Q2M", username: "rider", password: "secret"), .code)
+        // A whole pasted sentence is not a code.
+        XCTAssertEqual(PennConnect.missing(code: "Your code: K7Q2MX", username: "rider", password: "secret"), .code)
+        XCTAssertEqual(PennConnect.missing(code: "k7q-2mx", username: "  ", password: "secret"), .username)
+        XCTAssertEqual(PennConnect.missing(code: "K7Q2MX", username: "rider", password: ""), .password)
+        XCTAssertNil(PennConnect.missing(code: " k7q 2mx ", username: "rider", password: "secret"))
+        XCTAssertEqual(PennConnect.Missing.password.message, "Enter your RailData password.")
+    }
+
     func testEveryRefusalSaysSomethingOfItsOwn() {
         let all: [PennConnect.Refusal] = [.code, .codeUsed, .codeExpired, .codeLocked, .login, .busy, .unreachable]
         XCTAssertEqual(Set(all.map(\.message)).count, all.count)
