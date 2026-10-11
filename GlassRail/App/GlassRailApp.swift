@@ -22,7 +22,7 @@ struct GlassRailApp: App {
             .environment(\.theme, model.theme)
             .preferredColorScheme(model.theme.scheme)
             .task { model.start() }
-            .onOpenURL { _ in model.becameActive() }
+            .onOpenURL { url in model.open(url) }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

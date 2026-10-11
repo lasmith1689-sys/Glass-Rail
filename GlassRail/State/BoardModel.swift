@@ -37,6 +37,9 @@ final class BoardModel {
     /// "On a train that's already left?" is asking NJ Transit.
     private(set) var loadingRecentRides = false
     var activeSheet: ActiveSheet?
+    /// The code from a glassrail://connect link, until Settings opens its
+    /// Connect page with it.
+    var pendingSetupCode: String?
 
     let demo: DemoScenario?
     private let client = NJTClient()
@@ -135,11 +138,23 @@ final class BoardModel {
                 self?.tick()
             }
         })
-        if let sheet = LaunchOptions.sheet.flatMap({ $0 == "home" ? ActiveSheet.settings : $0 == "earlier" ? ActiveSheet.later : ActiveSheet(rawValue: $0) }) {
+        let pages: [String: ActiveSheet] = ["home": .settings, "connect": .settings, "earlier": .later]
+        if let sheet = LaunchOptions.sheet.flatMap({ pages[$0] ?? ActiveSheet(rawValue: $0) }) {
             loops.append(Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(1200))
                 self?.activeSheet = sheet
             })
+        }
+    }
+
+    /// A link into the app: a widget or Live Activity tap, or a setup link
+    /// (glassrail://connect?code=...) that opens Settings at "Connect NJ
+    /// Transit" with its code filled in.
+    func open(_ url: URL) {
+        becameActive()
+        if let code = PennConnect.setupCode(from: url) {
+            pendingSetupCode = code
+            activeSheet = .settings
         }
     }
 

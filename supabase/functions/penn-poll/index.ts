@@ -8,10 +8,11 @@
 // in penn_config and a new one is asked for at most once every 30 minutes
 // and six times a day, whatever the cron does.
 //
-// Secrets: NJT_USERNAME and NJT_PASSWORD, the RailData developer account,
-// set on the project and never in the repo or a log. Callers must send the
-// poll secret from penn_config as x-poll-secret; anyone else gets a 403, so
-// nobody else can spend the account's daily quota.
+// The RailData developer login: the one connected from Glass Rail's Settings
+// (penn-connect keeps it encrypted in Vault; penn_login() reads it), else the
+// NJT_USERNAME and NJT_PASSWORD Edge Function secrets. Never in the repo or a
+// log. Callers must send the poll secret from penn_config as x-poll-secret;
+// anyone else gets a 403, so nobody else can spend the account's daily quota.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -75,6 +76,16 @@ function errorMessage(reply: unknown): string | null {
   return null;
 }
 
+/** The login connected from the app, else the Edge Function secrets. */
+async function login(): Promise<{ username: string; password: string } | null> {
+  const { data, error } = await db.rpc("penn_login");
+  if (error) throw new Error(`penn_login: ${error.message}`);
+  if (typeof data?.username === "string" && typeof data?.password === "string") return data;
+  const username = Deno.env.get("NJT_USERNAME");
+  const password = Deno.env.get("NJT_PASSWORD");
+  return username && password ? { username, password } : null;
+}
+
 async function token(fresh = false): Promise<string> {
   if (!fresh) {
     const held = await setting("raildata_token");
@@ -83,9 +94,9 @@ async function token(fresh = false): Promise<string> {
       if (Date.now() - Date.parse(at) < TOKEN_REUSE_MS) return value;
     }
   }
-  const username = Deno.env.get("NJT_USERNAME");
-  const password = Deno.env.get("NJT_PASSWORD");
-  if (!username || !password) throw new Waiting("no NJ Transit credentials yet");
+  const account = await login();
+  if (!account) throw new Waiting("no NJ Transit credentials yet");
+  const { username, password } = account;
 
   const now = Date.now();
   const attempts = (JSON.parse((await setting("token_attempts")) ?? "[]") as string[])
@@ -99,6 +110,9 @@ async function token(fresh = false): Promise<string> {
 
   const reply = (await post("getToken", { username, password })) as Record<string, unknown> | null;
   const issued = reply?.UserToken;
+  if (/usage limit/i.test(errorMessage(reply) ?? "")) {
+    throw new Waiting(`NJ Transit's daily token limit: ${errorMessage(reply)}`);
+  }
   if (String(reply?.Authenticated ?? "").toLowerCase() !== "true" || typeof issued !== "string") {
     throw new Error(`getToken refused: ${errorMessage(reply) ?? "not authenticated"}`);
   }

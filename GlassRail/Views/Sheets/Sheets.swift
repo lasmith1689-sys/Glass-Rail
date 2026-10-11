@@ -555,26 +555,80 @@ struct StopRow: View {
 
 // MARK: Settings
 
-/// "Choose a look": v4's five themes.
+/// The home station, Penn track calls, and "Choose a look": v4's five themes.
 struct SettingsSheet: View {
     @Environment(BoardModel.self) private var model
     @Environment(\.theme) private var theme
-    @State private var choosingHome = LaunchOptions.sheet == "home"
+    @State private var page: Page = LaunchOptions.sheet == "home" ? .home : LaunchOptions.sheet == "connect" ? .connect : .main
+    @State private var detent: PresentationDetent = LaunchOptions.sheet == "connect" ? .large : SettingsSheet.short
+    @State private var checker: PennChecker?
+    @State private var checkerLoading = true
+    @State private var setupCode = ""
 
+    private enum Page {
+        case main, home, connect
+    }
+
+    private static let short = PresentationDetent.fraction(0.62)
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
-        if choosingHome {
-            HomeStationPicker(
-                currentId: model.homeId,
-                onChoose: { id in model.selectHome(id) },
-                onBack: { withAnimation(.snappy) { choosingHome = false } }
-            )
-            .transition(.move(edge: .trailing).combined(with: .opacity))
-        } else {
-            settings
-                .transition(.move(edge: .leading).combined(with: .opacity))
+        Group {
+            switch page {
+            case .home:
+                HomeStationPicker(
+                    currentId: model.homeId,
+                    onChoose: { id in model.selectHome(id) },
+                    onBack: { show(.main) }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            case .connect:
+                PennConnectPage(
+                    code: $setupCode,
+                    onBack: { show(.main) },
+                    onConnected: { checker = PennChecker(state: .starting, at: Date()) }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            case .main:
+                settings
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
         }
+        // The Connect page has three fields and a keyboard: give it the room.
+        .presentationDetents([Self.short, .large], selection: $detent)
+        .onChange(of: page) { _, page in
+            if page == .connect { detent = .large }
+        }
+        .onAppear { openSetupLink() }
+        .onChange(of: model.pendingSetupCode) { _, _ in openSetupLink() }
+        // While Settings shows, the checker's state stays current: a login
+        // just connected turns to "On" with the first read.
+        .task(id: page == .main) {
+            guard page == .main, model.demo == nil else {
+                checkerLoading = false
+                return
+            }
+            while !Task.isCancelled {
+                // A failed fetch keeps the last state it knew.
+                if let fetched = try? await PennTracksClient().fetch().checker {
+                    checker = fetched
+                }
+                checkerLoading = false
+                try? await Task.sleep(for: .seconds(20))
+            }
+        }
+    }
+
+    private func show(_ next: Page) {
+        withAnimation(.snappy) { page = next }
+    }
+
+    /// A glassrail://connect link opens the Connect page with its code in.
+    private func openSetupLink() {
+        guard let code = model.pendingSetupCode else { return }
+        model.pendingSetupCode = nil
+        setupCode = code
+        show(.connect)
     }
 
     private var settings: some View {
@@ -585,11 +639,16 @@ struct SettingsSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
-                HomeStationRow(station: model.home) {
-                    withAnimation(.snappy) { choosingHome = true }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 6)
+                HomeStationRow(station: model.home) { show(.home) }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+                Text("Penn track calls").kicker()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                PennCheckerRow(checker: checker, loading: checkerLoading) { show(.connect) }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
                 Text("Choose a look").kicker()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)

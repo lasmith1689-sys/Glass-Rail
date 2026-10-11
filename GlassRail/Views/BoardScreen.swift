@@ -89,8 +89,8 @@ struct BoardScreen: View {
                     StopsSheet()
                         .presentationDetents([.fraction(0.72), .large])
                 case .settings:
+                    // Sets its own detents: its Connect page opens it to full height.
                     SettingsSheet()
-                        .presentationDetents([.fraction(0.62), .large])
                 case .alerts:
                     AlertsSheet()
                         .presentationDetents([.fraction(0.62), .large])

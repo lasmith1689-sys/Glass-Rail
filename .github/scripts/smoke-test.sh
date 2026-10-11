@@ -320,9 +320,12 @@ capture 08b-earlier 6 'Left in the last hour && Train 1074 && [0-9]+m ago' -Glas
 capture 08c-penn-call 6 'Tk 13 && 98% && !STATIO(\.\.\.|…)' -GlassRailDemo pennCall
 capture 08d-penn-call-later 6 'Tk 7 && 31%' -GlassRailDemo pennCall -GlassRailSheet later
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
-capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Choose a look' -GlassRailSheet settings
+capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Penn track calls && Choose a look' -GlassRailSheet settings
 # Any NJ Transit rail station can be home, Watchung Avenue first as the default.
 capture 10c-home-station 5 'Home station && Watchung Avenue && Absecon && Allendale' -GlassRailSheet home
+# Connecting the Penn track checker to NJ Transit from the phone: a setup code and the
+# RailData login, at full height for the keyboard.
+capture 10d-penn-connect 5 'Connect NJ Transit && Setup code && Username && Password && developer' -GlassRailSheet connect
 # NJ Transit's travel alerts: a red link in the header that takes no room, so "Later this way"
 # stays on screen; and the sheet it opens, with the alerts in full.
 capture 10a-alerts 6 'SERVICE ALERTS && LATER THIS WAY && DELAYED' -GlassRailDemo delayed -GlassRailAlerts YES

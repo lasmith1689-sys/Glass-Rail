@@ -34,19 +34,28 @@ model's probability.
 |---|---|
 | `migrations/` | Tables (`penn_departures`, `penn_sightings`, `penn_polls`, `penn_config`), the decoder, the codebook and scores views, the history guess, `penn_ingest()` (one poll) and `penn_board()` (what the app reads). Applied in order. |
 | `functions/penn-poll` | Called by pg_cron every minute with the poll secret; reads RailData's Penn board (`getTrainSchedule19Rec`) and vehicle feed, and hands both to `penn_ingest()`. Keeps the RailData token for 20 hours and asks for a new one at most once every 30 minutes, six times a day (RailData allows ten). |
-| `functions/penn-tracks` | Public, read-only: `GET` returns `penn_board()`. This is what the app calls. |
+| `functions/penn-tracks` | Public, read-only: `GET` returns `penn_board()`, with the checker's own state (`checker`). This is what the app calls. |
+| `functions/penn-connect` | Connects the RailData login from the app's Settings: `POST {code, username, password}`. Needs the current setup code; RailData must accept the login before it is kept, encrypted in Vault, with the token it earned. |
 | `setup/penn_cron.sql` | The every-minute schedule, run once after the migrations. |
 | `tests/penn_ingest_test.sql` | Two simulated polls inside a block that raises its findings, so nothing is kept. |
+| `tests/penn_connect_test.sql` | Setup codes (wrong, loose, used, locked, expired), the login kept in Vault and read back, and the checker's state, the same way. |
 
 ## Setting it up
 
 1. Apply `migrations/` in order, then run `setup/penn_cron.sql`.
-2. Deploy both functions with JWT verification off: `penn-poll` checks the
-   poll secret itself, and `penn-tracks` is public.
-3. Add the RailData developer login as Edge Function secrets, `NJT_USERNAME`
-   and `NJT_PASSWORD` (Project Settings, Edge Functions, Secrets). They are
-   never in this repo. Until they are set, each poll records "no NJ Transit
-   credentials yet" in `penn_polls` and the app shows no calls.
+2. Deploy the three functions with JWT verification off: `penn-poll` checks
+   the poll secret itself, `penn-connect` the setup code, and `penn-tracks`
+   is public.
+3. Connect the RailData developer login. The easy way is the app: run
+   `select penn_new_code();` in the SQL editor for a one-time setup code
+   (it lasts 14 days; eight wrong tries retire it), then in Glass Rail open
+   Settings, Penn track calls, and enter the code, username and password, or
+   open `glassrail://connect?code=<code>` on the phone to have the code
+   filled in. Or set them as Edge Function secrets, `NJT_USERNAME` and
+   `NJT_PASSWORD`; a login connected from the app wins. Neither is ever in
+   this repo. Until one is set, each poll records "no NJ Transit credentials
+   yet" in `penn_polls`, Settings says "Not connected", and the app shows no
+   calls.
 
 ## Checking on it
 

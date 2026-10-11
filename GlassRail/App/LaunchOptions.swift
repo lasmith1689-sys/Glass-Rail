@@ -13,8 +13,9 @@ enum LaunchOptions {
     }
 
     /// Open this sheet on launch: `later`, `stops`, `settings`, `alerts`,
-    /// `home` (Settings at its home station picker), or `earlier` (the Later
-    /// sheet with "On a train that's already left?" open).
+    /// `home` (Settings at its home station picker), `connect` (Settings at
+    /// "Connect NJ Transit"), or `earlier` (the Later sheet with "On a train
+    /// that's already left?" open).
     static var sheet: String? {
         defaults.string(forKey: "GlassRailSheet")
     }

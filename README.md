@@ -57,7 +57,11 @@ is, and when to say a train has departed.
   history, how often each track has served that train, and says so with a low percentage. Every
   call is scored against the board: a live source shows its own measured hit rate over 14 days.
   The posted track always replaces the call, and a checker that stops polling stops calling
-  after 5 minutes.
+  after 5 minutes. The checker reads NJ Transit with the rider's own RailData developer login,
+  connected once in Settings under "Penn track calls" with a one-time setup code (or a
+  `glassrail://connect?code=...` link, which opens that page with the code filled in). NJ Transit
+  has to accept the login before the checker keeps it, encrypted; the phone keeps nothing. The
+  same row says whether the checker is reading the board.
 - **"Train N has departed"** for 12 seconds when the featured train leaves.
 - **Freshness**: `LIVE` only for genuinely live data; `STALE` ("Data may be outdated.") after 3.5
   minutes or two failed refreshes; `SAMPLE` for the bundled fallback, which never shows delays,
@@ -257,7 +261,7 @@ city). These replies were captured from the live feed and are kept as test fixtu
 | Path | What |
 |---|---|
 | `Packages/GlassRailKit` | The port of v4's `lib/` plus the board engine shared by app and widget. Pure Swift, unit tested. |
-| `Packages/GlassRailKit/Tests` | 316 tests: v4's 138 vitest cases, one XCTest each, plus 178 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage, and the New York Penn track checker's calls (reading its reply, matching a call to a train, a stalled checker, the board carrying a call until the track posts). |
+| `Packages/GlassRailKit/Tests` | 323 tests: v4's 138 vitest cases, one XCTest each, plus 185 more for the NJ Transit parser and client (including replies captured from the live feed: a normal weekday, a Saturday with no trains at Watchung Avenue, 3 AM, and the disrupted morning of 5 October 2026 with late, diverted and rerouted trains), per-train planner lookups (every train on the home board, six hours ahead), clock lookups pinned to the quarter hour, their cache and what stands in when a lookup or the board fails, planner outages, retries, NJ Transit failing at random (150 seeded runs, a third of requests failing), travel alerts, another home station, connections the live stop list rules out, the next day (a pin, a track and a stop list from yesterday must not carry over), directions carried over from an earlier refresh, the board engine (including which connections a later trip beats, and a ride started without pinning), the Live Activity's timing rules, widget timelines and storage, and the New York Penn track checker's calls (reading its reply, matching a call to a train, a stalled checker, the board carrying a call until the track posts), its own state, and connecting it to NJ Transit (setup codes and links, what is sent, every answer the checker can give). |
 | `GlassRail/` | The SwiftUI app. |
 | `GlassRailWidgets/` | The WidgetKit extension. |
 | `Shared/` | Theme, type scale and widget layouts, compiled into both targets. |
@@ -321,7 +325,7 @@ launch arguments (used by CI's smoke test):
 | `-GlassRailDemo riding` | A pinned train mid-ride, which then drops off the feed |
 | `-GlassRailDemo boarded` | The same ride, not pinned: the Later sheet offers it under "On a train that's already left?" |
 | `-GlassRailDemo pennCall` | An evening at New York Penn before any track is posted: the checker calls 6263's (Tk 13, 98%, from the signal) and 6273's (Tk 7, 31%, from history) |
-| `-GlassRailSheet later\|stops\|settings\|alerts\|home\|earlier` | Opens that sheet (`home`: Settings at the home station picker; `earlier`: the Later sheet with "On a train that's already left?" open) |
+| `-GlassRailSheet later\|stops\|settings\|alerts\|home\|connect\|earlier` | Opens that sheet (`home`: Settings at the home station picker; `connect`: Settings at "Connect NJ Transit"; `earlier`: the Later sheet with "On a train that's already left?" open) |
 | `-GlassRailAlerts YES` | Gives a QA scenario two NJ Transit travel alerts |
 | `-GlassRailWidgetGallery YES` | The widget layouts and the Live Activity's Lock Screen layout, rendered in the app |
 | `-GlassRailTheme midnight` | A theme, without saving it |

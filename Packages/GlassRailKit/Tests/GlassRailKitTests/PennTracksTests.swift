@@ -33,6 +33,19 @@ final class PennTracksTests: XCTestCase {
         XCTAssertThrowsError(try PennTracks.parse(Data("[]".utf8)))
     }
 
+    func testReadsTheCheckersOwnState() throws {
+        let tracks = try PennTracks.parse(Data("""
+        {"lastPoll": null, "departures": [],
+         "checker": {"state": "needs-login", "at": "2026-10-10T22:37:00Z"}}
+        """.utf8))
+        XCTAssertEqual(tracks.checker, PennChecker(state: .needsLogin, at: date("2026-10-10T22:37:00.000Z")))
+        XCTAssertNil(tracks.lastPoll)
+        XCTAssertEqual(try PennTracks.parse(Data(#"{"departures": [], "checker": {"state": "login-refused"}}"#.utf8)).checker?.state, .loginRefused)
+        // A state this build doesn't know, or none at all, shows as unknown.
+        XCTAssertNil(try PennTracks.parse(Data(#"{"departures": [], "checker": {"state": "something new"}}"#.utf8)).checker)
+        XCTAssertNil(try PennTracks.parse(Data(reply.utf8)).checker)
+    }
+
     func testAlsoReadsTimesWithFractionalSecondsAndAnOffset() throws {
         let tracks = try PennTracks.parse(Data("""
         {"lastPoll": "2026-10-09T21:40:00.123+00:00",

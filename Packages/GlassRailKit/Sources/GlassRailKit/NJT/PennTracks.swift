@@ -33,6 +33,34 @@ public struct TrackCall: Equatable, Sendable {
     }
 }
 
+/// How the track checker itself is doing, from its latest read of NJ
+/// Transit: what Settings shows under "Penn track calls".
+public struct PennChecker: Equatable, Sendable {
+    public enum State: String, Sendable {
+        /// Reading New York Penn's board every minute.
+        case ok
+        /// A login was just connected; the first read is under a minute away.
+        case starting
+        /// No NJ Transit login yet: connect one in Settings.
+        case needsLogin = "needs-login"
+        /// NJ Transit turned the saved login down (a changed password, say).
+        case loginRefused = "login-refused"
+        /// The last read failed; the next minute tries again.
+        case trouble
+        /// No read for five minutes or more.
+        case stopped
+    }
+
+    public var state: State
+    /// When the checker last tried.
+    public var at: Date?
+
+    public init(state: State, at: Date? = nil) {
+        self.state = state
+        self.at = at
+    }
+}
+
 /// What the checker says about New York Penn's NJ Transit departures.
 public struct PennTracks: Equatable, Sendable {
     public struct Departure: Equatable, Sendable {
@@ -53,10 +81,13 @@ public struct PennTracks: Equatable, Sendable {
     /// When the checker last read NJ Transit.
     public var lastPoll: Date?
     public var departures: [Departure]
+    /// The checker's own state, for Settings.
+    public var checker: PennChecker?
 
-    public init(lastPoll: Date?, departures: [Departure]) {
+    public init(lastPoll: Date?, departures: [Departure], checker: PennChecker? = nil) {
         self.lastPoll = lastPoll
         self.departures = departures
+        self.checker = checker
     }
 
     /// A checker that has stopped polling could be calling a track the board
@@ -98,9 +129,14 @@ public struct PennTracks: Equatable, Sendable {
             }
             return Departure(trainId: trainId, scheduled: scheduled, track: item["track"] as? String, call: call)
         }
+        let checker = (root["checker"] as? [String: Any]).flatMap { item -> PennChecker? in
+            guard let state = (item["state"] as? String).flatMap(PennChecker.State.init(rawValue:)) else { return nil }
+            return PennChecker(state: state, at: (item["at"] as? String).flatMap(ISOTime.date(from:)))
+        }
         return PennTracks(
             lastPoll: (root["lastPoll"] as? String).flatMap(ISOTime.date(from:)),
-            departures: departures
+            departures: departures,
+            checker: checker
         )
     }
 }
