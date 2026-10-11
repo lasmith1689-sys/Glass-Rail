@@ -45,6 +45,28 @@ jobs:
           fi
           echo "::notice title=Unit tests (TZ=Asia/Kolkata)::$summary"
 
+  checker:
+    name: Penn track checker (Supabase functions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Token renewal tests
+        run: node --test supabase/functions/penn-poll/token_policy_test.ts
+
+      - name: Token renewal tests in another time zone (New York's hours must not depend on the server's zone)
+        run: TZ=Asia/Kolkata node --test supabase/functions/penn-poll/token_policy_test.ts
+
+      - name: Type-check the functions and run the tests in Deno, as Supabase runs them
+        run: |
+          npx --yes deno@2.1.4 check supabase/functions/*/index.ts
+          npx --yes deno@2.1.4 test supabase/functions/penn-poll/token_policy_test.ts
+
   app:
     name: App + widgets (Simulator build and smoke test)
     runs-on: macos-26

@@ -3,10 +3,9 @@
 //
 // It asks RailData for New York Penn's departure board and the vehicle feed
 // and hands both, exactly as sent, to penn_ingest() in Postgres, which does
-// everything else. What lives here is the RailData session: a token lasts
-// 24 hours and getToken may be called ten times a day, so the token is kept
-// in penn_config and a new one is asked for at most once every 30 minutes
-// and six times a day, whatever the cron does.
+// everything else. What lives here is the RailData session: the token is
+// kept in penn_config and renewed as token_policy.ts says, in quiet hours
+// and never at the cost of a read, whatever the cron does.
 //
 // The RailData developer login: the one connected from Glass Rail's Settings
 // (penn-connect keeps it encrypted in Vault; penn_login() reads it), else the
@@ -15,12 +14,9 @@
 // anyone else gets a 403, so nobody else can spend the account's daily quota.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { DAY_MS, type Held, mayMint, type Need, poll } from "./token_policy.ts";
 
 const RAILDATA = "https://raildata.njtransit.com/api/TrainData";
-const TOKEN_REUSE_MS = 20 * 60 * 60 * 1000; // tokens last 24 hours
-const MINT_SPACING_MS = 30 * 60 * 1000;
-const MINTS_PER_DAY = 6; // of the ten getToken allows
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function secretKey(): string {
   const keys = Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -86,14 +82,19 @@ async function login(): Promise<{ username: string; password: string } | null> {
   return username && password ? { username, password } : null;
 }
 
-async function token(fresh = false): Promise<string> {
-  if (!fresh) {
-    const held = await setting("raildata_token");
-    if (held) {
-      const { value, at } = JSON.parse(held) as { value: string; at: string };
-      if (Date.now() - Date.parse(at) < TOKEN_REUSE_MS) return value;
-    }
+/** The token kept in penn_config, if any. */
+async function held(): Promise<Held | null> {
+  const kept = await setting("raildata_token");
+  try {
+    const { value, at } = JSON.parse(kept ?? "null") ?? {};
+    return typeof value === "string" ? { value, issuedAt: Date.parse(at) } : null;
+  } catch {
+    return null;
   }
+}
+
+/** A new token from getToken, if token_policy.ts allows one for `need`, kept in penn_config. */
+async function mint(need: Need): Promise<string> {
   const account = await login();
   if (!account) throw new Waiting("no NJ Transit credentials yet");
   const { username, password } = account;
@@ -101,8 +102,7 @@ async function token(fresh = false): Promise<string> {
   const now = Date.now();
   const attempts = (JSON.parse((await setting("token_attempts")) ?? "[]") as string[])
     .filter((at) => now - Date.parse(at) < DAY_MS);
-  const last = attempts.at(-1);
-  if (attempts.length >= MINTS_PER_DAY || (last && now - Date.parse(last) < MINT_SPACING_MS)) {
+  if (!mayMint(attempts.map(Date.parse), now, need)) {
     throw new Waiting("waiting before asking NJ Transit for another token");
   }
   attempts.push(new Date(now).toISOString());
@@ -120,12 +120,16 @@ async function token(fresh = false): Promise<string> {
   return issued;
 }
 
-/** A token-bearing call; a token RailData calls invalid is replaced once. */
-async function call(method: string, fields: Record<string, string>, held: { token: string }) {
-  let reply = await post(method, { ...fields, token: held.token });
+/** A token-bearing call; a token RailData calls invalid ("Invalid token.") is replaced once. */
+async function call(
+  method: string,
+  fields: Record<string, string>,
+  session: { token: string; fresh: () => Promise<string> },
+) {
+  let reply = await post(method, { ...fields, token: session.token });
   if (/invalid token/i.test(errorMessage(reply) ?? "")) {
-    held.token = await token(true);
-    reply = await post(method, { ...fields, token: held.token });
+    session.token = await session.fresh();
+    reply = await post(method, { ...fields, token: session.token });
   }
   const message = errorMessage(reply);
   if (message) throw new Error(`${method}: ${message}`);
@@ -140,17 +144,20 @@ Deno.serve(async (request) => {
     return new Response("forbidden", { status: 403 });
   }
   try {
-    // One after the other, so a replaced token serves both.
-    const held = { token: await token() };
-    const board = await call("getTrainSchedule19Rec", { station: "NY" }, held);
-    const vehicles = await call("getVehicleData", {}, held);
-    const { data, error } = await db.rpc("penn_ingest", {
-      p_board: board,
-      p_vehicles: vehicles,
-      p_polled_at: polledAt,
-      p_millis: Date.now() - started,
+    const data = await poll(await held(), started, mint, async (token, fresh) => {
+      // One after the other, so a replaced token serves both.
+      const session = { token, fresh };
+      const board = await call("getTrainSchedule19Rec", { station: "NY" }, session);
+      const vehicles = await call("getVehicleData", {}, session);
+      const { data, error } = await db.rpc("penn_ingest", {
+        p_board: board,
+        p_vehicles: vehicles,
+        p_polled_at: polledAt,
+        p_millis: Date.now() - started,
+      });
+      if (error) throw new Error(`penn_ingest: ${error.message}`);
+      return data;
     });
-    if (error) throw new Error(`penn_ingest: ${error.message}`);
     return Response.json({ ok: true, ...data });
   } catch (err) {
     const note = (err instanceof Error ? err.message : String(err)).slice(0, 300);

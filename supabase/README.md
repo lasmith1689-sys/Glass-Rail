@@ -33,7 +33,8 @@ model's probability.
 | | |
 |---|---|
 | `migrations/` | Tables (`penn_departures`, `penn_sightings`, `penn_polls`, `penn_config`), the decoder, the codebook and scores views, the history guess, `penn_ingest()` (one poll) and `penn_board()` (what the app reads). Applied in order. |
-| `functions/penn-poll` | Called by pg_cron every minute with the poll secret; reads RailData's Penn board (`getTrainSchedule19Rec`) and vehicle feed, and hands both to `penn_ingest()`. Keeps the RailData token for 20 hours and asks for a new one at most once every 30 minutes, six times a day (RailData allows ten). |
+| `functions/penn-poll` | Called by pg_cron every minute with the poll secret; reads RailData's Penn board (`getTrainSchedule19Rec`) and vehicle feed, and hands both to `penn_ingest()`. Keeps the RailData token in `penn_config` and renews it as `token_policy.ts` says: in New York's quiet hours (from 2 AM and 11 AM), by 20 hours old at the latest, and only after a poll RailData answered, so a renewal that fails costs no reads. getToken calls back off from 30 minutes to 4 hours apart and stop at six a day (RailData allows ten). |
+| `functions/penn-poll/token_policy_test.ts` | Those renewals minute by minute: a month of polls across the end of summer time, and getToken or all of RailData down for hours. CI runs it in Node and in Deno. |
 | `functions/penn-tracks` | Public, read-only: `GET` returns `penn_board()`, with the checker's own state (`checker`). This is what the app calls. |
 | `functions/penn-connect` | Connects the RailData login from the app's Settings: `POST {code, username, password}`. Needs the current setup code; RailData must accept the login before it is kept, encrypted in Vault, with the token it earned. |
 | `setup/penn_cron.sql` | The every-minute schedule, run once after the migrations. |
