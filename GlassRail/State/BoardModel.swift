@@ -539,7 +539,7 @@ final class BoardModel {
         if scenario == .riding {
             pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
         }
-        if scenario == .pennCall {
+        if scenario == .pennCall || scenario == .missedConnection {
             // An evening at Penn, whatever the hour of the test.
             destinationId = "penn"
             modeOverride = ModeOverride(mode: .pm, at: Date())
@@ -564,11 +564,8 @@ final class BoardModel {
         pennTracks = Demo.pennTracks(scenario, now: at)
         // Merge like the live path does: live mode keeps fetching the pinned
         // train's stop list after the planner drops it, so the riding
-        // scenario keeps its stops too. (v4's demo replaced them.) The Penn
-        // scenario has none: the made-up runs start out past Lincoln Park.
-        if scenario != .pennCall {
-            runs.merge(Demo.runs(for: demoPayload, now: at)) { _, new in new }
-        }
+        // scenario keeps its stops too. (v4's demo replaced them.)
+        runs.merge(Demo.runs(scenario, payload: demoPayload, now: at)) { _, new in new }
         now = at
         recompute()
     }

@@ -17,6 +17,8 @@ final class DemoTests: XCTestCase {
         XCTAssertEqual(DemoScenario.parse("sample"), .sample)
         XCTAssertEqual(DemoScenario.parse("riding"), .riding)
         XCTAssertEqual(DemoScenario.parse("boarded"), .boarded)
+        XCTAssertEqual(DemoScenario.parse("pennCall"), .pennCall)
+        XCTAssertEqual(DemoScenario.parse("missedConnection"), .missedConnection)
         XCTAssertNil(DemoScenario.parse("nonsense"))
         XCTAssertNil(DemoScenario.parse(nil))
     }

@@ -164,4 +164,17 @@ public enum Timing {
         next.timing = timing
         return next
     }
+
+    /// `view` for a rider who misses a connection and goes on by the next
+    /// train from that station (`Journey.nextConnection`): dropped off when
+    /// that train's live run says it gets in. Unchanged without timing or a
+    /// timetable arrival to measure the delay from.
+    public static func rerouted(_ view: TripView, arrival: Date) -> TripView {
+        guard var timing = view.timing, let scheduled = view.trip.arrival else { return view }
+        let dropoff = leg(scheduled, arrival, live: true)
+        timing.dropoff = dropoff
+        timing.worstDelayMinutes = max(timing.pickup.delayMinutes, dropoff.delayMinutes)
+        timing.late = timing.worstDelayMinutes > 0
+        return withTiming(view, timing)
+    }
 }

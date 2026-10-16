@@ -293,7 +293,7 @@ public enum BoardEngine {
            let ride = Status.rideView(retainedTrip, now: now, alerts: alerts, changes: activeChanges) {
             pinnedRide = markingBrokenConnection(applyTiming(ride, runs: runs, origin: from, dest: to), runs: runs)
         }
-        let hero = pinnedRide ?? upcomingHero
+        var hero = pinnedRide ?? upcomingHero
         let isPinned = activePinKey != nil && hero?.key == activePinKey
         let pinRideOver = activePinKey != nil && !isPinned && retainedTrip.map {
             Status.rideView($0, now: now, alerts: alerts, changes: activeChanges) == nil
@@ -338,7 +338,15 @@ public enum BoardEngine {
 
         let heroRuns = hero.map { runsForTrip($0.trip, runs: runs) } ?? [:]
         let heroStops = hero?.trip.trainId.flatMap { heroRuns[$0] }
-        let heroConnections = hero.map { Journey.tripConnections($0.trip, runs: heroRuns) } ?? []
+        let heroConnections = (hero.map { Journey.tripConnections($0.trip, runs: heroRuns) } ?? []).map { connection in
+            var connection = connection
+            connection.next = Journey.nextConnection(after: connection, toward: to.ref, runs: runs)
+            return connection
+        }
+        // Missing a connection, the rider gets in when the next train on does.
+        if let view = hero, !view.cancelled, let arrival = heroConnections.first(where: { $0.risk == .missed })?.next?.arrival {
+            hero = Timing.rerouted(view, arrival: arrival)
+        }
 
         var progress = 0.0
         if let hero {

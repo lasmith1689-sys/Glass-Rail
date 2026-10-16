@@ -319,6 +319,9 @@ capture 08b-earlier 6 'Left in the last hour && Train 1074 && [0-9]+m ago' -Glas
 # The hero's route line names Penn in full, not "PENN STATIO...".
 capture 08c-penn-call 6 'Tk 13 && 98% && !STATIO(\.\.\.|…)' -GlassRailDemo pennCall
 capture 08d-penn-call-later 6 'Tk 7 && 31%' -GlassRailDemo pennCall -GlassRailSheet later
+# A late train that gets to Secaucus after its connection leaves: the badge, by how much, the train
+# to wait for instead, and the drop-off moved to when that one gets in.
+capture 08e-missed-connection 6 'Misses connection && 2 min after it leaves && Next: .*6239 && 30m late' -GlassRailDemo missedConnection
 capture 09-stops-sheet 6 'ALL STOPS' -GlassRailDemo riding -GlassRailSheet stops
 capture 10-settings 5 'Home station && Watchung Avenue && Montclair-Boonton && Penn track calls && Choose a look' -GlassRailSheet settings
 # Any NJ Transit rail station can be home, Watchung Avenue first as the default.

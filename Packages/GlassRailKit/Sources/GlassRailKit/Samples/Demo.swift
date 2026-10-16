@@ -18,6 +18,10 @@ public enum DemoScenario: String, CaseIterable, Sendable {
     /// checker calls 6263's from the signalling system (Tk 13, 98%) and
     /// 6273's from history (Tk 7, 31%), and has nothing yet for 6283.
     case pennCall
+    /// An evening at New York Penn: 3833, 6 minutes late, gets to Secaucus 2
+    /// minutes after its connection, 6233, leaves; 6239 is the next train on
+    /// to Watchung Avenue.
+    case missedConnection
 
     public static func parse(_ value: String?) -> DemoScenario? {
         guard let value else { return nil }
@@ -31,7 +35,7 @@ public enum DemoScenario: String, CaseIterable, Sendable {
         case .track: return 4
         case .riding: return 6
         case .departed: return 12
-        case .delayed, .stale, .sample, .boarded, .pennCall: return nil
+        case .delayed, .stale, .sample, .boarded, .pennCall, .missedConnection: return nil
         }
     }
 }
@@ -117,6 +121,8 @@ public enum Demo {
             trips = baseTrips(now: now, hero: HeroPatch(track: "2"), heroDepMins: -12)
         case .pennCall:
             trips = pennTrips(now: now)
+        case .missedConnection:
+            trips = missedConnectionTrips(now: now)
         }
 
         return Payload(
@@ -134,6 +140,51 @@ public enum Demo {
             trip("penn", "watchung", 39, 39, "6273", now: now),
             trip("penn", "watchung", 69, 39, "6283", now: now),
         ]
+    }
+
+    /// The missedConnection scenario's trains home from New York Penn, both
+    /// changing at Secaucus.
+    static func missedConnectionTrips(now: Date) -> [Trip] {
+        [
+            trip("penn", "watchung", 10, 48, "3833", now: now) {
+                $0.status = .delayed
+                $0.statusNote = "Delayed 6 min"
+                $0.transferCount = 1
+                $0.transferAt = ["Secaucus"]
+                $0.legTrainIds = ["3833", "6233"]
+            },
+            trip("penn", "watchung", 40, 48, "3839", now: now) {
+                $0.transferCount = 1
+                $0.transferAt = ["Secaucus"]
+                $0.legTrainIds = ["3839", "6239"]
+            },
+        ]
+    }
+
+    /// The missedConnection scenario's stop lists: 3833 calls at Secaucus at
+    /// +25, after 6233 has left it at +23; 6239 leaves it at +53 and gets to
+    /// Watchung Avenue at +88.
+    static func missedConnectionRuns(now: Date) -> Runs {
+        func run(_ status: String, _ calls: [(name: String, mins: Int)]) -> [TrainStop] {
+            calls.map { TrainStop(name: $0.name, time: now.adding(minutes: $0.mins), departed: false, status: status, note: nil) }
+        }
+        return [
+            "3833": run("Late", [("New York Penn Station", 16), ("Secaucus Upper Lvl", 25), ("Newark Penn Station", 33), ("Trenton", 85)]),
+            "6233": run("OnTime", [("Hoboken", 10), ("Secaucus Upper Lvl", 23), ("Newark Broad Street", 35), ("Watchung Avenue", 58)]),
+            "3839": run("OnTime", [("New York Penn Station", 40), ("Secaucus Upper Lvl", 49), ("Newark Penn Station", 57), ("Trenton", 109)]),
+            "6239": run("OnTime", [("Hoboken", 40), ("Secaucus Upper Lvl", 53), ("Newark Broad Street", 65), ("Watchung Avenue", 88)]),
+        ]
+    }
+
+    /// The stop lists a scenario renders with: none for pennCall, whose
+    /// made-up runs would start out past Lincoln Park; missedConnection's
+    /// own, which call at Secaucus; for the rest, `runs(for:now:)`.
+    public static func runs(_ scenario: DemoScenario, payload: Payload, now: Date) -> Runs {
+        switch scenario {
+        case .pennCall: return [:]
+        case .missedConnection: return missedConnectionRuns(now: now)
+        default: return runs(for: payload, now: now)
+        }
     }
 
     /// The track checker's calls for a scenario: only pennCall has any.

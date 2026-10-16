@@ -8,11 +8,83 @@ public struct Connection: Equatable, Sendable {
     public var trainId: String?
     /// Live departure from that station, read off the connecting train's run.
     public var departure: Date?
+    /// When the rider's own train gets there, read off its run. NJ Transit
+    /// lists one time a stop, when the train leaves it, so this can run a
+    /// minute late: a warning comes early, never late.
+    public var arrival: Date?
+    /// The connecting train has already left the station.
+    public var departed: Bool
+    /// The rider's train has already left the station: the change is behind them.
+    public var arrived: Bool
+    /// The train to wait for instead, when this one is missed (see
+    /// `Journey.nextConnection`).
+    public var next: Onward?
 
-    public init(station: String, trainId: String?, departure: Date?) {
+    public init(
+        station: String,
+        trainId: String?,
+        departure: Date?,
+        arrival: Date? = nil,
+        departed: Bool = false,
+        arrived: Bool = false,
+        next: Onward? = nil
+    ) {
         self.station = station
         self.trainId = trainId
         self.departure = departure
+        self.arrival = arrival
+        self.departed = departed
+        self.arrived = arrived
+        self.next = next
+    }
+
+    /// A later train on from the station, read off its own run.
+    public struct Onward: Equatable, Sendable {
+        public var trainId: String
+        /// When it leaves the station.
+        public var departure: Date
+        /// When it gets to the rider's destination.
+        public var arrival: Date?
+
+        public init(trainId: String, departure: Date, arrival: Date?) {
+            self.trainId = trainId
+            self.departure = departure
+            self.arrival = arrival
+        }
+
+        /// Gets the rider in sooner: the earlier arrival, then the earlier
+        /// departure, then the lower number, so the pick never depends on
+        /// the order the runs come in.
+        func beats(_ other: Onward) -> Bool {
+            let mine = arrival ?? .distantFuture
+            let theirs = other.arrival ?? .distantFuture
+            if mine != theirs { return mine < theirs }
+            if departure != other.departure { return departure < other.departure }
+            return trainId < other.trainId
+        }
+    }
+
+    /// Less time than this to change trains is a tight connection.
+    public static let tightUnder: TimeInterval = 2 * 60
+
+    public enum Risk: Equatable, Sendable {
+        /// Due in with this many whole minutes to change (0 or 1).
+        case tight(minutes: Int)
+        /// Due in after the connecting train leaves, or it has already left.
+        case missed
+    }
+
+    /// Whether the change is at risk, by both trains' live runs. Nothing to
+    /// say without the rider's train's run, or once it has been through the
+    /// station: the rider made the change or not.
+    public var risk: Risk? {
+        guard arrival != nil, !arrived else { return nil }
+        if departed { return .missed }
+        guard let arrival, let departure else { return nil }
+        let slack = departure.timeIntervalSince(arrival)
+        if slack < 0 { return .missed }
+        if slack < Self.tightUnder { return .tight(minutes: Int(slack / 60)) }
+        return nil
     }
 }
 
@@ -104,16 +176,54 @@ public enum Journey {
 
     /// The connections in a transfer itinerary. The rider's own train only
     /// covers the first leg, so "when does the connecting train pick me up?"
-    /// can only be answered from the connecting train's stop list.
+    /// can only be answered from the connecting train's stop list, and "do I
+    /// make it?" from the train that brings them in as well.
     public static func tripConnections(_ trip: Trip, runs: Runs) -> [Connection] {
-        trip.transferAt.enumerated().map { index, station in
-            let legIds = trip.legTrainIds ?? []
+        let legIds = trip.legTrainIds ?? []
+        return trip.transferAt.enumerated().map { index, station in
             let trainId: String? = index + 1 < legIds.count ? legIds[index + 1] : nil
-            let stops = trainId.flatMap { runs[$0] }
+            // The train that brings the rider in: the leg before, or their
+            // own train for the first change.
+            let inboundId: String? = index < legIds.count ? legIds[index] : (index == 0 ? trip.trainId : nil)
             let ref = StationRef(name: station, shortLabel: station)
-            let match = stops?.first(where: { stopMatchesStation($0.name, ref) })
-            return Connection(station: station, trainId: trainId, departure: match?.time)
+            let onward = trainId.flatMap { runs[$0] }?.first(where: { stopMatchesStation($0.name, ref) })
+            let inbound = inboundId.flatMap { runs[$0] }?.first(where: { stopMatchesStation($0.name, ref) })
+            return Connection(
+                station: station,
+                trainId: trainId,
+                departure: onward?.time,
+                arrival: inbound?.time,
+                departed: onward?.departed ?? false,
+                arrived: inbound?.departed ?? false
+            )
         }
+    }
+
+    /// The train to wait for at a missed connection: of the stop lists on
+    /// hand, the one that gets the rider to `dest` soonest, leaving the
+    /// station at least `Connection.tightUnder` after their train gets in and
+    /// calling at `dest` later in its run. A time more than three hours on
+    /// belongs to another day's train of that number. nil when nothing on
+    /// hand goes there, or the connection isn't missed.
+    public static func nextConnection(after connection: Connection, toward dest: StationRef, runs: Runs) -> Connection.Onward? {
+        guard connection.risk == .missed, let arrival = connection.arrival else { return nil }
+        let station = StationRef(name: connection.station, shortLabel: connection.station)
+        func calls(_ stop: TrainStop, at ref: StationRef) -> Bool {
+            stopMatchesStation(stop.name, ref) && stop.status?.lowercased().contains("cancel") != true
+        }
+        var best: Connection.Onward?
+        for (trainId, stops) in runs where trainId != connection.trainId {
+            guard let at = stops.firstIndex(where: { calls($0, at: station) }),
+                  !stops[at].departed,
+                  let leaves = stops[at].time,
+                  leaves.timeIntervalSince(arrival) >= Connection.tightUnder,
+                  leaves.timeIntervalSince(arrival) <= 3 * 3600,
+                  let there = stops[(at + 1)...].first(where: { calls($0, at: dest) })
+            else { continue }
+            let candidate = Connection.Onward(trainId: trainId, departure: leaves, arrival: there.time)
+            if best.map(candidate.beats) ?? true { best = candidate }
+        }
+        return best
     }
 
     /// The featured trip: the pinned one while it is still upcoming, else the first.

@@ -558,4 +558,52 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(state.hero?.timing?.dropoff?.delayMinutes, 2)
         XCTAssertEqual(state.hero?.expectedDeparture, at(now, 46))
     }
+
+    func testMissedConnectionScenarioNamesTheTrainToWaitForAndWhenItGetsIn() {
+        let now = evening
+        let p = Demo.payload(.missedConnection, step: 0, now: now)
+        let state = compute(p, now: now, destination: "penn", runs: Demo.runs(.missedConnection, payload: p, now: now))
+        XCTAssertEqual(state.dirKey, "penn|watchung")
+        XCTAssertEqual(state.hero?.trip.trainId, "3833")
+        let connection = state.heroConnections.first
+        XCTAssertEqual(connection?.trainId, "6233")
+        XCTAssertEqual(connection?.arrival, at(now, 25))
+        XCTAssertEqual(connection?.risk, .missed)
+        XCTAssertEqual(connection?.next, Connection.Onward(trainId: "6239", departure: at(now, 53), arrival: at(now, 88)))
+        // Out of Penn 6 late, and in at Watchung Avenue on 6239, 30 late, by its live run.
+        XCTAssertEqual(state.hero?.timing?.pickup.delayMinutes, 6)
+        XCTAssertEqual(state.hero?.timing?.dropoff?.expected, at(now, 88))
+        XCTAssertEqual(state.hero?.timing?.dropoff?.delayMinutes, 30)
+        XCTAssertEqual(state.hero?.timing?.dropoff?.live, true)
+        XCTAssertEqual(state.hero?.expectedArrival, at(now, 88))
+        XCTAssertEqual(state.later.map(\.trip.trainId), ["3839"])
+    }
+
+    func testAConnectionMadeLeavesTheDropOffCarriedFromThePickup() {
+        let now = evening
+        let p = Demo.payload(.missedConnection, step: 0, now: now)
+        var runs = Demo.runs(.missedConnection, payload: p, now: now)
+        // 3833 in at Secaucus two minutes before 6233 leaves.
+        runs["3833"] = runs["3833"]?.map { stop in
+            var stop = stop
+            if stop.name.hasPrefix("Secaucus") { stop.time = at(now, 21) }
+            return stop
+        }
+        let state = compute(p, now: now, destination: "penn", runs: runs)
+        XCTAssertNil(state.heroConnections.first?.risk)
+        XCTAssertNil(state.heroConnections.first?.next)
+        XCTAssertEqual(state.hero?.timing?.dropoff?.expected, at(now, 64))
+        XCTAssertEqual(state.hero?.timing?.dropoff?.live, false)
+    }
+
+    func testACancelledTripKeepsItsDropOff() {
+        let now = evening
+        var p = Demo.payload(.missedConnection, step: 0, now: now)
+        p.trips[0].status = .cancelled
+        p.trips[0].statusNote = "Cancelled"
+        let state = compute(p, now: now, destination: "penn", runs: Demo.runs(.missedConnection, payload: p, now: now))
+        XCTAssertEqual(state.hero?.trip.trainId, "3833")
+        XCTAssertEqual(state.hero?.cancelled, true)
+        XCTAssertEqual(state.hero?.expectedArrival, at(now, 64))
+    }
 }

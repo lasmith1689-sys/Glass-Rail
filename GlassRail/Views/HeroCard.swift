@@ -64,7 +64,14 @@ private struct HeroDetails: View {
     /// Live data only (see `BoardState.showsOnTime`).
     private var showsOnTime: Bool { state.showsOnTime(view) }
     private var showsBadgeRow: Bool {
-        view.delayed || view.cancelled || view.trackChange != nil || state.isPinned || showsOnTime
+        view.delayed || view.cancelled || view.trackChange != nil || state.isPinned || showsOnTime || connectionRisk != nil
+    }
+    /// The worst of the trip's changes, a missed one over a tight one.
+    /// Nothing on a cancelled trip, which says so itself.
+    private var connectionRisk: Connection.Risk? {
+        guard !view.cancelled else { return nil }
+        let risks = state.heroConnections.compactMap(\.risk)
+        return risks.contains(.missed) ? .missed : risks.first
     }
 
     var body: some View {
@@ -164,6 +171,10 @@ private struct HeroDetails: View {
             }
             if view.delayed && !view.cancelled {
                 AlertBadge(tone: .delay, text: view.delayMinutes.map { "Delayed \($0)m" } ?? "Delayed")
+            }
+            if let risk = connectionRisk {
+                AlertBadge(tone: risk == .missed ? .cancel : .delay, text: risk == .missed ? "Misses connection" : "Tight connection")
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
             if let change = view.trackChange {
                 AlertBadge(tone: .track, text: "Track changed")
@@ -310,26 +321,73 @@ struct MetaChip: View {
     }
 }
 
-/// When the connecting train picks the rider up at a transfer.
+/// When the connecting train picks the rider up at a transfer. When the
+/// rider's train gets in too late for it, or with under two minutes to
+/// change, it says so, and names the train to wait for instead.
 struct ConnectionRow: View {
     let connection: Connection
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Connection at \(connection.station)").kicker(9.3)
-                Text(connection.trainId.map { "Train \($0)" } ?? "Connecting train")
-                    .grFont(12.5, .medium, style: .footnote, digits: true)
-                    .lineLimit(1)
+        let risk = connection.risk
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connection at \(connection.station)").kicker(9.3)
+                    Text(connection.trainId.map { "Train \($0)" } ?? "Connecting train")
+                        .grFont(12.5, .medium, style: .footnote, digits: true)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text(connection.departure.map(Format.time) ?? "--")
+                    .grFont(15.2, .semibold, style: .headline, digits: true)
             }
-            Spacer(minLength: 8)
-            Text(connection.departure.map(Format.time) ?? "--")
-                .grFont(15.2, .semibold, style: .headline, digits: true)
+            if let risk, let note = Self.note(risk, connection) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    // Centred on the first line, as in a one-line badge, should
+                    // the note wrap at a large text size.
+                    Circle().fill(Self.accent(risk)).frame(width: 6, height: 6)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 1.2 }
+                    Text(note)
+                        .grFont(11.8, .semibold, style: .footnote, digits: true)
+                        .foregroundStyle(theme.ink.opacity(0.9))
+                }
+                .padding(.top, 7)
+                .transition(.opacity)
+            }
+            if let next = connection.next {
+                Text("Next: \(Format.time(next.departure)) · Train \(next.trainId)" + (next.arrival.map { " · arrives \(Format.time($0))" } ?? ""))
+                    .grFont(11.8, .medium, style: .footnote, digits: true)
+                    .foregroundStyle(theme.ink.opacity(0.8))
+                    .padding(.top, 3)
+                    .padding(.leading, 12)
+                    .transition(.opacity)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .insetPanel(radius: 12)
+        .insetPanel(radius: 12, highlight: risk.map { Self.accent($0).opacity(0.5) })
+        .animation(.snappy, value: risk)
         .accessibilityElement(children: .combine)
+    }
+
+    static func accent(_ risk: Connection.Risk) -> Color {
+        risk == .missed ? Accent.cancel : Accent.delay
+    }
+
+    /// "You get in at 6:25 PM, 2 min after it leaves", "You get in at
+    /// 6:22 PM, 1 min to change".
+    static func note(_ risk: Connection.Risk, _ connection: Connection) -> String? {
+        guard let arrival = connection.arrival else { return nil }
+        let getIn = "You get in at \(Format.time(arrival))"
+        switch risk {
+        case .tight(let minutes):
+            return getIn + (minutes > 0 ? ", \(minutes) min to change" : ", as it leaves")
+        case .missed:
+            guard !connection.departed, let departure = connection.departure else { return "Already left. \(getIn)" }
+            let late = max(1, Int((arrival.timeIntervalSince(departure) / 60).rounded()))
+            return getIn + ", \(late) min after it leaves"
+        }
     }
 }
 
