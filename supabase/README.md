@@ -26,7 +26,8 @@ Three sources, in the order they are trusted:
 Every call is scored against the board when the track posts
 (`penn_scores`): a signal or berth call shows its own measured hit rate over
 the last 14 days (starting from 19 in 20), and a history call shows the
-model's probability.
+model's probability scaled to how often history calls came right over the
+same 14 days (`penn_history_scale()`: lowered, never raised, by at most half).
 
 ## Pieces
 
@@ -40,6 +41,7 @@ model's probability.
 | `setup/penn_cron.sql` | The every-minute schedule, run once after the migrations. |
 | `tests/penn_ingest_test.sql` | Two simulated polls inside a block that raises its findings, so nothing is kept. |
 | `tests/penn_connect_test.sql` | Setup codes (wrong, loose, used, locked, expired), the login kept in Vault and read back, and the checker's state, the same way. |
+| `tests/penn_history_scale_test.sql` | History calls at their measured odds: the scale with no record, with one, at its floor and its ceiling, and what `penn_board()` shows for a history call and a signal call, the same way. |
 
 ## Setting it up
 
