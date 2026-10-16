@@ -338,6 +338,36 @@ final class JourneyTests: XCTestCase {
         XCTAssertEqual(Journey.nextConnection(after: missed, toward: hobokenRef, runs: runs)?.trainId, "6226")
     }
 
+    // MARK: currentLeg
+
+    func testTheRiderIsOnTheirOwnTrainUntilItHasBeenThroughTheChange() {
+        let leg = Journey.currentLeg(transferTrip, connections: [change(in: 4, out: 6)!], origin: watchungRef)
+        XCTAssertEqual(leg, RideLeg(trainId: "1012", boardsAt: watchungRef))
+        var direct = transferTrip
+        direct.transferCount = 0
+        direct.transferAt = []
+        direct.legTrainIds = ["1012"]
+        XCTAssertEqual(Journey.currentLeg(direct, connections: [], origin: watchungRef)?.trainId, "1012")
+    }
+
+    func testAfterAChangeTheRiderIsOnTheConnectingTrain() {
+        let made = change(in: -2, out: 1, inDeparted: true)!
+        let leg = Journey.currentLeg(transferTrip, connections: [made], origin: watchungRef)
+        XCTAssertEqual(leg?.trainId, "6222")
+        XCTAssertEqual(leg?.boardsAt, StationRef(name: "Newark Broad", shortLabel: "Newark Broad"))
+    }
+
+    func testAfterAMissedChangeTheRiderIsOnTheTrainTheyWaitedForOrNoneKnown() {
+        var missed = change(in: -2, out: -4, inDeparted: true, outDeparted: true)!
+        XCTAssertNil(Journey.currentLeg(transferTrip, connections: [missed], origin: watchungRef))
+        missed.next = Connection.Onward(trainId: "6226", departure: iso(10), arrival: iso(43))
+        XCTAssertEqual(Journey.currentLeg(transferTrip, connections: [missed], origin: watchungRef)?.trainId, "6226")
+        // Nor a train the feed didn't name.
+        var unnamed = change(in: -2, out: 1, inDeparted: true)!
+        unnamed.trainId = nil
+        XCTAssertNil(Journey.currentLeg(transferTrip, connections: [unnamed], origin: watchungRef))
+    }
+
     func testPicksTheSameTrainWhateverOrderTheRunsComeIn() {
         let missed = change(in: 14, out: 12)!
         // The same arrival: the earlier departure; the same both: the lower number.

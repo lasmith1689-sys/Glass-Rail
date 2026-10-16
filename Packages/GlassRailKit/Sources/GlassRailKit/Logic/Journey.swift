@@ -94,6 +94,18 @@ public struct Connection: Equatable, Sendable {
     }
 }
 
+/// The train the rider is on, or waiting for, on the featured trip, and
+/// where they board it.
+public struct RideLeg: Equatable, Sendable {
+    public var trainId: String
+    public var boardsAt: StationRef
+
+    public init(trainId: String, boardsAt: StationRef) {
+        self.trainId = trainId
+        self.boardsAt = boardsAt
+    }
+}
+
 public enum Journey {
     private static let ignoredTokens: Set<String> = ["station", "terminal", "street", "st"]
 
@@ -232,6 +244,26 @@ public enum Journey {
             if best.map(candidate.beats) ?? true { best = candidate }
         }
         return best
+    }
+
+    /// The train the rider is on, or waiting for: their own train until it
+    /// has been through the first transfer station, then the connecting train
+    /// there, and so on. After a missed connection, the train to wait for
+    /// instead; none when no stop list on hand has one, or the connecting
+    /// train isn't named, rather than a train the rider has left.
+    public static func currentLeg(_ trip: Trip, connections: [Connection], origin: StationRef) -> RideLeg? {
+        guard let own = trip.trainId ?? trip.legTrainIds?.first else { return nil }
+        var leg = RideLeg(trainId: own, boardsAt: origin)
+        for connection in connections {
+            guard connection.arrived else { break }
+            let station = StationRef(name: connection.station, shortLabel: connection.station)
+            if connection.risk == .missed {
+                return connection.next.map { RideLeg(trainId: $0.trainId, boardsAt: station) }
+            }
+            guard let train = connection.trainId else { return nil }
+            leg = RideLeg(trainId: train, boardsAt: station)
+        }
+        return leg
     }
 
     /// The featured trip: the pinned one while it is still upcoming, else the first.

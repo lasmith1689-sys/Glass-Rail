@@ -109,6 +109,10 @@ public struct BoardState: Equatable, Sendable {
     public var recentRides: [TripView]
     public var noService: Bool
     public var alternate: Alternate?
+    /// The train the rider is on, or waiting for (`Journey.currentLeg`):
+    /// after a change, the connecting train, not the one they left.
+    public var heroLeg: RideLeg?
+    /// That train's live stop list.
     public var heroStops: [TrainStop]?
     public var heroConnections: [Connection]
     public var currentKeys: [String]
@@ -359,7 +363,14 @@ public enum BoardEngine {
         }
 
         let heroRuns = hero.map { runsForTrip($0.trip, runs: runs) } ?? [:]
-        let heroStops = hero?.trip.trainId.flatMap { heroRuns[$0] }
+        let heroLeg = hero.flatMap { Journey.currentLeg($0.trip, connections: heroConnections, origin: from.ref) }
+        let heroStops = heroLeg.flatMap { leg -> [TrainStop]? in
+            // A train the trip names only counts with a list that can be
+            // today's; the one to wait for instead was already held to that
+            // by `Journey.nextConnection`.
+            let named = hero.map { ($0.trip.legTrainIds ?? []).contains(leg.trainId) || $0.trip.trainId == leg.trainId } ?? false
+            return named ? heroRuns[leg.trainId] : runs[leg.trainId]
+        }
 
         var progress = 0.0
         if let hero {
@@ -390,6 +401,7 @@ public enum BoardEngine {
             recentRides: recentRides,
             noService: noService,
             alternate: alternate,
+            heroLeg: heroLeg,
             heroStops: heroStops,
             heroConnections: heroConnections,
             currentKeys: direction.compactMap(\.key),

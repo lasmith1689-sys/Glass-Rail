@@ -398,8 +398,9 @@ struct RowPress: ButtonStyle {
 
 // MARK: Stops
 
-/// Every stop of the featured train: past stops dimmed, the next one
-/// highlighted, the rider's boarding and exit stops tagged.
+/// Every stop of the train the rider is on (after a change, the connecting
+/// train): past stops dimmed, the next one highlighted, the rider's boarding
+/// and exit stops tagged.
 struct StopsSheet: View {
     @Environment(BoardModel.self) private var model
     @Environment(\.theme) private var theme
@@ -411,7 +412,7 @@ struct StopsSheet: View {
         let nextIndex = Journey.nextStopIndex(stops)
         VStack(spacing: 0) {
             SheetHeader(
-                kicker: "Train \(state?.hero?.trip.trainId ?? "--") · all stops",
+                kicker: "Train \(state?.heroLeg?.trainId ?? state?.hero?.trip.trainId ?? "--") · all stops",
                 title: ahead > 0 ? "\(ahead) stop\(ahead == 1 ? "" : "s") ahead" : "Run complete"
             )
             ScrollView {
@@ -420,7 +421,7 @@ struct StopsSheet: View {
                         StopRow(
                             stop: stop,
                             isNext: index == nextIndex,
-                            isBoard: state.map { Journey.stopMatchesStation(stop.name, $0.from.ref) } ?? false,
+                            isBoard: state.map { Journey.stopMatchesStation(stop.name, $0.heroLeg?.boardsAt ?? $0.from.ref) } ?? false,
                             isExit: state.map { Journey.stopMatchesStation(stop.name, $0.to.ref) } ?? false
                         )
                     }

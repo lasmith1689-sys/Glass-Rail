@@ -130,7 +130,7 @@ private struct HeroDetails: View {
                 .padding(.top, 8)
             }
             if let stops = state.heroStops, !stops.isEmpty {
-                PositionButton(trainId: trip.trainId, label: Format.positionLabel(stops), action: onOpenStops)
+                PositionButton(trainId: state.heroLeg?.trainId ?? trip.trainId, label: Format.positionLabel(stops), action: onOpenStops)
                     .padding(.top, 10)
             }
             HStack(spacing: 8) {
