@@ -74,15 +74,21 @@ public struct Connection: Equatable, Sendable {
         case missed
     }
 
-    /// Whether the change is at risk, by both trains' live runs. Nothing to
-    /// say without the rider's train's run, or once it has been through the
-    /// station: the rider made the change or not.
+    /// Whether the change is at risk, by both trains' live runs:
+    /// - missed: the connecting train is due out of the station before the
+    ///   rider's train is. That holds once both have been through (their
+    ///   final times), so a rider who missed it is still told so, and of the
+    ///   train to wait for. With no time for the connecting train, missed
+    ///   only when it has left before the rider's train got there.
+    /// - tight: under `tightUnder` between the two, while neither has left.
+    /// Nothing without the rider's train's run, and nothing once either train
+    /// has left with the times not saying missed: the rider made it or not.
     public var risk: Risk? {
-        guard arrival != nil, !arrived else { return nil }
-        if departed { return .missed }
-        guard let arrival, let departure else { return nil }
+        guard let arrival else { return nil }
+        guard let departure else { return departed && !arrived ? .missed : nil }
         let slack = departure.timeIntervalSince(arrival)
         if slack < 0 { return .missed }
+        if departed || arrived { return nil }
         if slack < Self.tightUnder { return .tight(minutes: Int(slack / 60)) }
         return nil
     }
@@ -202,9 +208,11 @@ public enum Journey {
     /// The train to wait for at a missed connection: of the stop lists on
     /// hand, the one that gets the rider to `dest` soonest, leaving the
     /// station at least `Connection.tightUnder` after their train gets in and
-    /// calling at `dest` later in its run. A time more than three hours on
-    /// belongs to another day's train of that number. nil when nothing on
-    /// hand goes there, or the connection isn't missed.
+    /// calling at `dest` later in its run. Before the rider's train gets
+    /// there, a train that has already left can't be it; after, it may be the
+    /// one they are on. A time more than three hours on belongs to another
+    /// day's train of that number. nil when nothing on hand goes there, or
+    /// the connection isn't missed.
     public static func nextConnection(after connection: Connection, toward dest: StationRef, runs: Runs) -> Connection.Onward? {
         guard connection.risk == .missed, let arrival = connection.arrival else { return nil }
         let station = StationRef(name: connection.station, shortLabel: connection.station)
@@ -214,7 +222,7 @@ public enum Journey {
         var best: Connection.Onward?
         for (trainId, stops) in runs where trainId != connection.trainId {
             guard let at = stops.firstIndex(where: { calls($0, at: station) }),
-                  !stops[at].departed,
+                  connection.arrived || !stops[at].departed,
                   let leaves = stops[at].time,
                   leaves.timeIntervalSince(arrival) >= Connection.tightUnder,
                   leaves.timeIntervalSince(arrival) <= 3 * 3600,

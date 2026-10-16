@@ -229,13 +229,27 @@ final class JourneyTests: XCTestCase {
     }
 
     func testAConnectionThatHasAlreadyLeftIsMissed() {
-        // Gone is gone, whatever its time said.
-        XCTAssertEqual(change(in: 8, out: 12, outDeparted: true)?.risk, .missed)
+        XCTAssertEqual(change(in: 3, out: -1, outDeparted: true)?.risk, .missed)
+        // Gone with no time to go by, before the rider's train got there.
+        let runs: Runs = [
+            "1012": [stop("Newark Broad Street", 3, false)],
+            "6222": [TrainStop(name: "Newark Broad Street", time: nil, departed: true, status: nil, note: nil)],
+        ]
+        XCTAssertEqual(Journey.tripConnections(transferTrip, runs: runs).first?.risk, .missed)
     }
 
-    func testNothingToSayOnceTheRidersTrainHasBeenThroughTheStation() {
+    func testATightConnectionThatHasLeftSaysNoMore() {
+        // It left as the rider's train was due out, or after: the rider may well be on it.
+        XCTAssertNil(change(in: 0, out: 0, outDeparted: true)?.risk)
+        XCTAssertNil(change(in: 1, out: 2, outDeparted: true)?.risk)
+    }
+
+    func testOnceTheRidersTrainHasBeenThroughOnlyAMissStands() {
+        // Waiting for a connection still to come, or one that left at about the same time.
         XCTAssertNil(change(in: -1, out: 2, inDeparted: true)?.risk)
-        XCTAssertNil(change(in: -1, out: -3, inDeparted: true, outDeparted: true)?.risk)
+        XCTAssertNil(change(in: -1, out: 0, inDeparted: true, outDeparted: true)?.risk)
+        // It left two minutes before the rider's train did, by their final times.
+        XCTAssertEqual(change(in: -1, out: -3, inDeparted: true, outDeparted: true)?.risk, .missed)
     }
 
     func testNothingToSayWithoutTheRidersOwnTrainsRun() {
@@ -314,6 +328,14 @@ final class JourneyTests: XCTestCase {
             "6232": [stop("Newark Broad Street", 30 + 24 * 60, false), stop("Hoboken", 63 + 24 * 60, false)],
         ]
         XCTAssertNil(Journey.nextConnection(after: missed, toward: hobokenRef, runs: runs))
+    }
+
+    func testAfterTheRidersTrainHasBeenThroughTheTrainTheyWaitedForStillCounts() {
+        let missed = change(in: -20, out: -22, inDeparted: true, outDeparted: true)!
+        XCTAssertEqual(missed.risk, .missed)
+        // 6226 has left Newark Broad Street too: with the rider on it.
+        let runs: Runs = ["6226": [stop("Newark Broad Street", -5, true), stop("Hoboken", 28, false)]]
+        XCTAssertEqual(Journey.nextConnection(after: missed, toward: hobokenRef, runs: runs)?.trainId, "6226")
     }
 
     func testPicksTheSameTrainWhateverOrderTheRunsComeIn() {

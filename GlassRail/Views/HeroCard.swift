@@ -376,17 +376,18 @@ struct ConnectionRow: View {
     }
 
     /// "You get in at 6:25 PM, 2 min after it leaves", "You get in at
-    /// 6:22 PM, 1 min to change".
+    /// 6:22 PM, 1 min to change"; "You got in ... after it left" once both
+    /// trains have been through.
     static func note(_ risk: Connection.Risk, _ connection: Connection) -> String? {
         guard let arrival = connection.arrival else { return nil }
-        let getIn = "You get in at \(Format.time(arrival))"
+        let getIn = (connection.arrived ? "You got in at " : "You get in at ") + Format.time(arrival)
         switch risk {
         case .tight(let minutes):
             return getIn + (minutes > 0 ? ", \(minutes) min to change" : ", as it leaves")
         case .missed:
-            guard !connection.departed, let departure = connection.departure else { return "Already left. \(getIn)" }
+            guard let departure = connection.departure else { return "Already left. \(getIn)" }
             let late = max(1, Int((arrival.timeIntervalSince(departure) / 60).rounded()))
-            return getIn + ", \(late) min after it leaves"
+            return getIn + ", \(late) min after it " + (connection.departed ? "left" : "leaves")
         }
     }
 }

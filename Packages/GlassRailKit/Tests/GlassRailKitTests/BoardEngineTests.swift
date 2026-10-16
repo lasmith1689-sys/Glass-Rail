@@ -577,6 +577,64 @@ final class BoardEngineTests: XCTestCase {
         XCTAssertEqual(state.hero?.timing?.dropoff?.live, true)
         XCTAssertEqual(state.hero?.expectedArrival, at(now, 88))
         XCTAssertEqual(state.later.map(\.trip.trainId), ["3839"])
+        // The train to wait for keeps its stop list fresh.
+        XCTAssertTrue(state.trackedTrainIds.contains("6239"))
+    }
+
+    /// The missedConnection scenario's stop lists as they stand `minutes`
+    /// after `t0`: every stop due by then has been left.
+    func missedConnectionRuns(_ t0: Date, at minutes: Double) -> Runs {
+        let p = Demo.payload(.missedConnection, step: 0, now: t0)
+        return Demo.runs(.missedConnection, payload: p, now: t0).mapValues { stops in
+            stops.map { stop in
+                var stop = stop
+                stop.departed = stop.time.map { $0 <= at(t0, minutes) } ?? false
+                return stop
+            }
+        }
+    }
+
+    func testAFollowedRideStaysWithTheRiderOntoTheNextTrainAfterAMissedConnection() {
+        let t0 = evening
+        let p = Demo.payload(.missedConnection, step: 0, now: t0)
+        let pin = Pin(dirKey: "penn|watchung", key: "penn|watchung|3833")
+        let ride = RideCache(key: pin.key, trip: p.trips[0])
+        // 3833 has been through Secaucus (+25), 6233 left it at +23, and the
+        // rider waits for 6239 (+53, at Watchung Avenue +88). By the
+        // timetable the ride ended at +67: due +58, 6 late, 3 minutes' grace.
+        let waiting = compute(p, now: at(t0, 70), destination: "penn", pin: pin, ride: ride, runs: missedConnectionRuns(t0, at: 70))
+        XCTAssertEqual(waiting.hero?.trip.trainId, "3833")
+        XCTAssertTrue(waiting.riding)
+        XCTAssertFalse(waiting.pinRideOver)
+        XCTAssertEqual(waiting.heroConnections.first?.risk, .missed)
+        XCTAssertEqual(waiting.heroConnections.first?.next?.trainId, "6239")
+        XCTAssertEqual(waiting.hero?.expectedArrival, at(t0, 88))
+        XCTAssertEqual(Array(waiting.trackedTrainIds.prefix(3)), ["3833", "6233", "6239"])
+        // On 6239 once it has left Secaucus: still followed, to +88.
+        let aboard = compute(p, now: at(t0, 80), destination: "penn", pin: pin, ride: ride, runs: missedConnectionRuns(t0, at: 80))
+        XCTAssertTrue(aboard.riding)
+        XCTAssertEqual(aboard.heroConnections.first?.next?.trainId, "6239")
+        XCTAssertEqual(aboard.hero?.expectedArrival, at(t0, 88))
+        // Over three minutes after 6239 gets in.
+        let home = compute(p, now: at(t0, 92), destination: "penn", pin: pin, ride: ride, runs: missedConnectionRuns(t0, at: 92))
+        XCTAssertFalse(home.riding)
+        XCTAssertTrue(home.pinRideOver)
+    }
+
+    func testARideRunningLateIsFollowedUntilItsLiveArrival() {
+        let pin = Pin(dirKey: "watchung|hoboken", key: "watchung|hoboken|1074")
+        // Due at Hoboken 11 minutes ago, but its stop list has it there in 4.
+        let late = trip("1074", "watchung", "hoboken", at(morning, -50), track: "2")
+        let runs: Runs = ["1074": [
+            TrainStop(name: "Watchung Avenue", time: at(morning, -50), departed: true, status: "Late", note: nil),
+            TrainStop(name: "Newark Broad Street", time: at(morning, -20), departed: true, status: "Late", note: nil),
+            TrainStop(name: "Hoboken", time: at(morning, 4), departed: false, status: "Late", note: nil),
+        ]]
+        let state = compute(payload(Array(weekday.dropFirst())), pin: pin, ride: RideCache(key: pin.key, trip: late), runs: runs)
+        XCTAssertEqual(state.hero?.trip.trainId, "1074")
+        XCTAssertTrue(state.riding)
+        XCTAssertEqual(state.hero?.expectedArrival, at(morning, 4))
+        XCTAssertFalse(state.pinRideOver)
     }
 
     func testAConnectionMadeLeavesTheDropOffCarriedFromThePickup() {

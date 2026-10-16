@@ -197,9 +197,10 @@ public enum BoardEngine {
     }
 
     /// The trains whose stop lists are worth fetching: the pinned train and
-    /// its connections first, then the first few this way (and their
+    /// its connections first, then `following` (the train to wait for after
+    /// a missed connection), then the first few this way (and their
     /// connecting trains), capped at `stopListTrains`.
-    public static func trackedTrainIds(base: [TripView], pin: Pin?, rideCache: RideCache?) -> [String] {
+    public static func trackedTrainIds(base: [TripView], pin: Pin?, rideCache: RideCache?, following: [String] = []) -> [String] {
         var ids: [String] = []
         func push(_ id: String?) {
             if let id, !id.isEmpty, !ids.contains(id) { ids.append(id) }
@@ -208,6 +209,7 @@ public enum BoardEngine {
         if let rideCache {
             for id in rideCache.trip.legTrainIds ?? [] { push(id) }
         }
+        for id in following { push(id) }
         for view in base.prefix(stopListTrains) {
             push(view.trip.trainId)
             if view.trip.transferCount > 0 {
@@ -272,7 +274,6 @@ public enum BoardEngine {
             view.trackCall = input.pennTracks?.call(for: view.trip, now: now)
             return view
         }
-        let tracked = trackedTrainIds(base: base, pin: input.pin, rideCache: input.rideCache)
         let direction = base
 
         var upcomingIndex: Int? = direction.isEmpty ? nil : 0
@@ -288,16 +289,37 @@ public enum BoardEngine {
                 key: key
             )
         }
-        var pinnedRide: TripView?
-        if let activePinKey, upcomingHero?.key != activePinKey, let retainedTrip,
-           let ride = Status.rideView(retainedTrip, now: now, alerts: alerts, changes: activeChanges) {
-            pinnedRide = markingBrokenConnection(applyTiming(ride, runs: runs, origin: from, dest: to), runs: runs)
+        // Once the pinned trip has left, it is followed as a ride until shortly
+        // after it gets in: by the timetable (`Status.rideView`), or later, by
+        // its live drop-off, which after a missed connection is when the next
+        // train on gets in.
+        var followedRide: Followed?
+        var rideOn = false
+        if activePinKey != nil, let retainedTrip {
+            let ride = following(
+                markingBrokenConnection(
+                    applyTiming(Status.deriveTripView(retainedTrip, changes: activeChanges, alerts: alerts), runs: runs, origin: from, dest: to),
+                    runs: runs
+                ),
+                runs: runs,
+                dest: to
+            )
+            rideOn = Status.rideView(retainedTrip, now: now, alerts: alerts, changes: activeChanges) != nil
+                || ride.view.expectedArrival.map { now <= $0.addingTimeInterval(Status.rideArrivalGrace) } == true
+            followedRide = ride
         }
-        var hero = pinnedRide ?? upcomingHero
+        let pinnedRide = rideOn && upcomingHero?.key != activePinKey ? followedRide : nil
+        let featured = pinnedRide ?? upcomingHero.map { following($0, runs: runs, dest: to) }
+        let hero = featured?.view
+        let heroConnections = featured?.connections ?? []
         let isPinned = activePinKey != nil && hero?.key == activePinKey
-        let pinRideOver = activePinKey != nil && !isPinned && retainedTrip.map {
-            Status.rideView($0, now: now, alerts: alerts, changes: activeChanges) == nil
-        } == true
+        let pinRideOver = activePinKey != nil && !isPinned && retainedTrip != nil && !rideOn
+        let tracked = trackedTrainIds(
+            base: base,
+            pin: input.pin,
+            rideCache: input.rideCache,
+            following: heroConnections.compactMap { $0.next?.trainId }
+        )
         // Every later train this way: v4 stopped at 10, when its four planner
         // lookups rarely found more.
         var later = direction
@@ -338,15 +360,6 @@ public enum BoardEngine {
 
         let heroRuns = hero.map { runsForTrip($0.trip, runs: runs) } ?? [:]
         let heroStops = hero?.trip.trainId.flatMap { heroRuns[$0] }
-        let heroConnections = (hero.map { Journey.tripConnections($0.trip, runs: heroRuns) } ?? []).map { connection in
-            var connection = connection
-            connection.next = Journey.nextConnection(after: connection, toward: to.ref, runs: runs)
-            return connection
-        }
-        // Missing a connection, the rider gets in when the next train on does.
-        if let view = hero, !view.cancelled, let arrival = heroConnections.first(where: { $0.risk == .missed })?.next?.arrival {
-            hero = Timing.rerouted(view, arrival: arrival)
-        }
 
         var progress = 0.0
         if let hero {
@@ -402,6 +415,29 @@ public enum BoardEngine {
     public static func pinExpired(trip: Trip?, pinnedAt: Date?, now: Date) -> Bool {
         guard let since = trip?.departure ?? pinnedAt else { return false }
         return now.timeIntervalSince(since) > PinStore.ttl
+    }
+
+    /// A trip view with its connections read off the live runs, and the
+    /// drop-off it really has.
+    struct Followed {
+        var view: TripView
+        var connections: [Connection]
+    }
+
+    /// `view` with its connections read off the live runs
+    /// (`Journey.tripConnections`) and, at a missed one, the train to wait for
+    /// instead (`Journey.nextConnection`): the rider gets in when that train
+    /// does, so that is the drop-off. A cancelled trip keeps its own.
+    static func following(_ view: TripView, runs: Runs, dest: Station) -> Followed {
+        let connections = Journey.tripConnections(view.trip, runs: runsForTrip(view.trip, runs: runs)).map { connection in
+            var connection = connection
+            connection.next = Journey.nextConnection(after: connection, toward: dest.ref, runs: runs)
+            return connection
+        }
+        guard !view.cancelled, let arrival = connections.first(where: { $0.risk == .missed })?.next?.arrival else {
+            return Followed(view: view, connections: connections)
+        }
+        return Followed(view: Timing.rerouted(view, arrival: arrival), connections: connections)
     }
 
     /// Why a connection can't be made today, read off the connecting train's
