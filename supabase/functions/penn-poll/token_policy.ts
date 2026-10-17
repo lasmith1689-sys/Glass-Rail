@@ -10,9 +10,11 @@
 //   old token carries on.
 //
 // Only a token 23 hours old, missing, or refused by NJ Transit stops a poll
-// for a new one. getToken calls back off (30 minutes, then 1, 2 and 4 hours
-// apart) and stop at six in any 24 hours, leaving NJ Transit's other four
-// for connecting from the app (penn-connect).
+// for a new one. getToken calls back off by the failed ones since the token
+// in hand was issued: 30 minutes after a token was issued or a call failed,
+// then 1, 2 and 4 hours after the next failures. All calls, good and failed,
+// stop at six in any 24 hours, leaving NJ Transit's other four for
+// connecting from the app (penn-connect).
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -66,11 +68,27 @@ export function spacing(recent: number): number {
   return recent === 0 ? 0 : Math.min(30 * MINUTE_MS * 2 ** (recent - 1), 4 * HOUR_MS);
 }
 
-/** Whether getToken may be called at `now` for `need`, after calls at `attempts` (ms). */
-export function mayMint(attempts: number[], now: number, need: Need): boolean {
+/**
+ * Whether getToken may be called at `now` for `need`, after calls at
+ * `attempts` (ms), the token in hand having been issued at `issuedAt`.
+ *
+ * The wait after the latest call counts the calls since `issuedAt`, the
+ * failed ones: on 17 October 2026 a token issued at 2 AM was refused at
+ * 10:08 AM and getToken failed, and counting the 2 AM call too put the next
+ * try an hour off instead of 30 minutes. A call that brought a token still
+ * waits 30 minutes before the next, so tokens refused as soon as they are
+ * issued can't spend the day's calls in a row. Without a usable `issuedAt`,
+ * every call in the last 24 hours counts as failed: the longer wait. The cap
+ * counts every call, good or failed.
+ */
+export function mayMint(attempts: number[], now: number, need: Need, issuedAt: number | null = null): boolean {
   const recent = attempts.filter((at) => now - at < DAY_MS);
+  const failed = issuedAt !== null && Number.isFinite(issuedAt)
+    ? recent.filter((at) => at > issuedAt).length
+    : recent.length;
+  const backoff = recent.length === 0 ? 0 : spacing(Math.max(failed, 1));
   const quiet = need === "quiet";
-  const gap = quiet ? Math.max(spacing(recent.length), QUIET_RENEW_MS) : spacing(recent.length);
+  const gap = quiet ? Math.max(backoff, QUIET_RENEW_MS) : backoff;
   return recent.length < (quiet ? QUIET_MINTS_PER_DAY : MINTS_PER_DAY) && recent.every((at) => now - at >= gap);
 }
 

@@ -15,6 +15,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { DAY_MS, type Held, mayMint, type Need, poll } from "./token_policy.ts";
+import { readTokenReply, tokenNote } from "./token_reply.ts";
 
 const RAILDATA = "https://raildata.njtransit.com/api/TrainData";
 
@@ -102,22 +103,18 @@ async function mint(need: Need): Promise<string> {
   const now = Date.now();
   const attempts = (JSON.parse((await setting("token_attempts")) ?? "[]") as string[])
     .filter((at) => now - Date.parse(at) < DAY_MS);
-  if (!mayMint(attempts.map(Date.parse), now, need)) {
+  if (!mayMint(attempts.map(Date.parse), now, need, (await held())?.issuedAt ?? null)) {
     throw new Waiting("waiting before asking NJ Transit for another token");
   }
   attempts.push(new Date(now).toISOString());
   await remember("token_attempts", JSON.stringify(attempts));
 
-  const reply = (await post("getToken", { username, password })) as Record<string, unknown> | null;
-  const issued = reply?.UserToken;
-  if (/usage limit/i.test(errorMessage(reply) ?? "")) {
-    throw new Waiting(`NJ Transit's daily token limit: ${errorMessage(reply)}`);
-  }
-  if (String(reply?.Authenticated ?? "").toLowerCase() !== "true" || typeof issued !== "string") {
-    throw new Error(`getToken refused: ${errorMessage(reply) ?? "not authenticated"}`);
-  }
-  await remember("raildata_token", JSON.stringify({ value: issued, at: new Date(now).toISOString() }));
-  return issued;
+  // "getToken refused" only for an answer about the login (token_reply.ts).
+  const reply = readTokenReply(await post("getToken", { username, password }));
+  if (reply.kind === "limit") throw new Waiting(tokenNote(reply));
+  if (reply.kind !== "token") throw new Error(tokenNote(reply));
+  await remember("raildata_token", JSON.stringify({ value: reply.token, at: new Date(now).toISOString() }));
+  return reply.token;
 }
 
 /** A token-bearing call; a token RailData calls invalid ("Invalid token.") is replaced once. */
