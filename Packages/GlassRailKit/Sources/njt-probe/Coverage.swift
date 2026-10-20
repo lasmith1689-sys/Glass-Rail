@@ -51,6 +51,12 @@ private func shortItinerary(_ itinerary: JSON, baseNow: Date) -> String {
         : "\(head) > \(tail), \(changes) change\(changes == 1 ? "" : "s")\(other)"
 }
 
+/// Each summary once, in first-seen order (lookups repeat itineraries).
+private func distinct(_ items: [String]) -> [String] {
+    var seen = Set<String>()
+    return items.filter { seen.insert($0).inserted }
+}
+
 private func tripSummary(_ trip: Trip) -> String {
     let legs = trip.legTrainIds ?? [trip.trainId].compactMap { $0 }
     let arrival = trip.arrival.map(Format.time) ?? "?"
@@ -114,7 +120,7 @@ func explainMissingTrainsHome(
                 answer = "its arrive-by \(Format.time(seed.at)) lookup answered no trips"
             } else {
                 answer = "its arrive-by \(Format.time(seed.at)) lookup offered "
-                    + single.itineraries.map { shortItinerary($0, baseNow: now) }.joined(separator: "; ")
+                    + distinct(single.itineraries.map { shortItinerary($0, baseNow: now) }).joined(separator: "; ")
             }
             out.append((train, "stage 3: no planner itinerary from \(from.shortLabel) rides it in any of \(window.lookups) clock and \(window.seedLookups) per-train lookups; \(answer); \(context)", false))
             continue
@@ -127,7 +133,9 @@ func explainMissingTrainsHome(
             let why = allOther
                 ? "every itinerary on it also rides PATH, the subway or a bus (usesOtherTransit drops them)"
                 : "no usable itinerary ends on it (it is not the last rail leg with times)"
-            out.append((train, "stage 4: \(why): " + onTrain.map { shortItinerary($0, baseNow: now) }.joined(separator: "; ") + "; \(context)", false))
+            // Every leg (route type, train, stops, times), each distinct itinerary once.
+            let shown = distinct(onTrain.map { allOther ? legsSummary($0) : shortItinerary($0, baseNow: now) })
+            out.append((train, "stage 4: \(why): " + shown.joined(separator: "; ") + "; \(context)", false))
             continue
         }
         let own = NJTParse.normalizeItineraries(usable, fromId: pair.fromId, toId: pair.toId, boardIndex: originIndex, baseNow: now)
