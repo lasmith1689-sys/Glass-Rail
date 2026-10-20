@@ -117,6 +117,7 @@ do {
     // first train into the city, or as the last train home.
     let index = NJTParse.buildBoardIndex(homeBoardItems)
     var coverage: [String] = []
+    var missingHome: [(pair: ODPair, trains: [String])] = []
     for pair in Alternates.defaultPairs() {
         let leaving = pair.fromId == UserConfig.homeId
         let due = index.filter { entry in
@@ -130,8 +131,20 @@ do {
         })
         let missing = due.keys.filter { !used.contains($0) }.sorted()
         coverage.append("\(pair.key): \(due.count - missing.count) of \(due.count) board trains" + (missing.isEmpty ? "" : ", missing \(missing.joined(separator: ", "))"))
+        if pair.fromId == "penn", pair.toId == UserConfig.homeId, !missing.isEmpty {
+            missingHome.append((pair, missing))
+        }
     }
     notice("board trains covered (next 6 hours)", coverage.joined(separator: "\n"))
+
+    // 3b'. Why each board train missing from Penn Station's ways home has no
+    // trip, by the first stage of the refresh that drops it (Coverage.swift).
+    for (pair, trains) in missingHome {
+        let reasons = await explainMissingTrainsHome(trains, pair: pair, homeIndex: index, payload: payload, client: client, now: t0)
+        for item in reasons {
+            notice("\(pair.key) missing \(item.train)\(item.expected ? " (expected)" : "")", item.reason)
+        }
+    }
 } catch {
     notice("live payload FAILED", error.localizedDescription)
 }
